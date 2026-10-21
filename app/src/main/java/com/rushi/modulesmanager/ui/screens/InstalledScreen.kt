@@ -97,86 +97,91 @@ fun InstalledScreen(
             )
         },
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
         ) {
-            LazyColumn(
-                state = listState,
+            Row(
                 modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                item(key = "filter") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CountedFilterChip(
-                            selected = !updatesOnly,
-                            onClick = { updatesOnly = false },
-                            label = "All",
-                            count = installed.size,
-                        )
-                        CountedFilterChip(
-                            selected = updatesOnly,
-                            onClick = { updatesOnly = true },
-                            label = "Updates",
-                            count = updates.size,
-                        )
-                    }
-                }
-    
-                if (visible.isEmpty()) {
-                    item(key = "empty") {
-                        EmptyState(
-                            icon = Icons.Outlined.Apps,
-                            title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
-                            body = if (updatesOnly) {
-                                "All installed modules are on their latest version in this repository."
-                            } else {
-                                "Install modules from the Modules tab, then enable them in LSPosed."
-                            },
-                        )
-                    }
-                } else {
-                    items(visible, key = { it.packageName }) { module ->
-                        InstalledCard(
-                            module = module,
-                            repoModule = modulesByPackage[module.packageName],
-                            update = updatesByPackage[module.packageName],
-                            onOpenRepository = { onOpenModule(module.packageName) },
-                            onOpenApp = { viewModel.openInstalledModule(module.packageName) },
-                            onUpdate = { update -> viewModel.installLatest(update.module) },
-                        )
-                    }
-                }
+                CountedFilterChip(
+                    selected = !updatesOnly,
+                    onClick = { updatesOnly = false },
+                    label = "All",
+                    count = installed.size,
+                )
+                CountedFilterChip(
+                    selected = updatesOnly,
+                    onClick = { updatesOnly = true },
+                    label = "Updates",
+                    count = updates.size,
+                )
             }
-            VerticalScrollbar(
-                state = listState,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .padding(top = 8.dp, bottom = 80.dp),
-            )
 
-            val showScrollToTop by remember {
-                derivedStateOf { listState.firstVisibleItemIndex > 0 }
-            }
-            if (showScrollToTop) {
-                FloatingActionButton(
-                    onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Scroll to top")
+                    if (visible.isEmpty()) {
+                        item(key = "empty") {
+                            EmptyState(
+                                icon = Icons.Outlined.Apps,
+                                title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
+                                body = if (updatesOnly) {
+                                    "All installed modules are on their latest version in this repository."
+                                } else {
+                                    "Install modules from the Modules tab, then enable them in LSPosed."
+                                },
+                            )
+                        }
+                    } else {
+                        items(visible, key = { it.packageName }) { module ->
+                            InstalledCard(
+                                module = module,
+                                repoModule = modulesByPackage[module.packageName],
+                                update = updatesByPackage[module.packageName],
+                                onOpenRepository = { onOpenModule(module.packageName) },
+                                onOpenApp = { viewModel.openInstalledModule(module.packageName) },
+                                onUpdate = { update -> viewModel.installLatest(update.module) },
+                            )
+                        }
+                    }
+                }
+
+                VerticalScrollbar(
+                    state = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .padding(top = 4.dp, bottom = 80.dp),
+                )
+
+                val showScrollToTop by remember {
+                    derivedStateOf { listState.firstVisibleItemIndex > 0 }
+                }
+                if (showScrollToTop) {
+                    FloatingActionButton(
+                        onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ) {
+                        Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Scroll to top")
+                    }
                 }
             }
         }

@@ -7,19 +7,17 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @Composable
 fun VerticalScrollbar(
@@ -28,24 +26,46 @@ fun VerticalScrollbar(
 ) {
     val layoutInfo = state.layoutInfo
     val totalItems = layoutInfo.totalItemsCount
-    val visibleItems = layoutInfo.visibleItemsInfo.size
-    if (totalItems == 0 || visibleItems == 0 || totalItems <= visibleItems) return
+    val visibleItems = layoutInfo.visibleItemsInfo
+    val viewport = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).toFloat()
+    if (totalItems == 0 || visibleItems.isEmpty() || viewport <= 0f) return
 
-    val firstIndex = state.firstVisibleItemIndex
-    val maxFirstIndex = (totalItems - visibleItems).coerceAtLeast(1)
-    val progress = (firstIndex.toFloat() / maxFirstIndex).coerceIn(0f, 1f)
-    val thumbFraction = (visibleItems.toFloat() / totalItems).coerceIn(0.06f, 1f)
-    val scope = rememberCoroutineScope()
+    val averageStep = averageItemStep(visibleItems)
+    val totalContent = (averageStep * totalItems).coerceAtLeast(viewport)
+    val contentRange = (totalContent - viewport).coerceAtLeast(0f)
+    if (contentRange <= 0f) return
+
+    val current = (state.firstVisibleItemIndex * averageStep + state.firstVisibleItemScrollOffset)
+        .coerceIn(0f, contentRange)
+    val progress = when {
+        !state.canScrollBackward -> 0f
+        !state.canScrollForward -> 1f
+        else -> (current / contentRange).coerceIn(0f, 1f)
+    }
+    val thumbFraction = (viewport / totalContent).coerceIn(0.05f, 1f)
 
     BoxWithConstraints(
         modifier = modifier
-            .width(12.dp)
-            .pointerInput(totalItems, maxFirstIndex) {
-                detectDragGestures { change, _ ->
+            .width(20.dp)
+            .pointerInput(totalItems) {
+                // Move the list by the same distance the finger moves on the track. Using raw
+                // pixels instead of jumping to an item index keeps this smooth.
+                detectDragGestures { change, dragAmount ->
                     change.consume()
-                    val fraction = (change.position.y / size.height.toFloat()).coerceIn(0f, 1f)
-                    val target = (fraction * maxFirstIndex).roundToInt().coerceIn(0, maxFirstIndex)
-                    scope.launch { state.scrollToItem(target) }
+                    val info = state.layoutInfo
+                    val items = info.visibleItemsInfo
+                    if (items.isNotEmpty()) {
+                        val viewportPx = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                        if (viewportPx > 0f) {
+                            val step = averageItemStep(items)
+                            val contentHeight = (step * info.totalItemsCount).coerceAtLeast(viewportPx)
+                            val scrollRange = (contentHeight - viewportPx).coerceAtLeast(1f)
+                            val thumbPx = (size.height * (viewportPx / contentHeight))
+                                .coerceAtLeast(36.dp.toPx())
+                            val trackRange = (size.height - thumbPx).coerceAtLeast(1f)
+                            state.dispatchRawDelta(dragAmount.y * (scrollRange / trackRange))
+                        }
+                    }
                 }
             },
     ) {
@@ -59,10 +79,19 @@ fun VerticalScrollbar(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(y = with(density) { (maxOffsetPx * progress).toDp() })
-                .width(4.dp)
+                .width(5.dp)
                 .height(with(density) { thumbHeightPx.toDp() })
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)),
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)),
         )
     }
+}
+
+private fun averageItemStep(items: List<LazyListItemInfo>): Float {
+    if (items.size > 1) {
+        val first = items.first()
+        val last = items.last()
+        return ((last.offset - first.offset + last.size).toFloat() / items.size).coerceAtLeast(1f)
+    }
+    return items.first().size.toFloat().coerceAtLeast(1f)
 }
