@@ -14,18 +14,19 @@ import com.rushi.modulesmanager.data.DefaultSources
 import com.rushi.modulesmanager.data.DownloadCenter
 import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.InstalledPackageVersion
+import com.rushi.modulesmanager.data.LiveUpdateRateLimitException
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoAsset
 import com.rushi.modulesmanager.data.RepoModule
-import com.rushi.modulesmanager.data.RepoSource
 import com.rushi.modulesmanager.data.SortMode
 import com.rushi.modulesmanager.data.UpdateChannel
-import com.rushi.modulesmanager.data.normalizeRepoBase
-import com.rushi.modulesmanager.data.sourceFromBase
 import com.rushi.modulesmanager.data.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,20 +40,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class ModuleUpdate(
     val installed: InstalledModule,
     val module: RepoModule,
     val version: ModuleVersion,
-)
-
-data class AddSourceState(
-    val inProgress: Boolean = false,
-    val error: String? = null,
-    val added: RepoSource? = null,
 )
 
 class AppViewModel(private val container: AppContainer) : ViewModel() {
@@ -71,14 +69,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val lastUpdated: StateFlow<Long?> = container.repo.lastUpdated
     val downloads: StateFlow<DownloadCenter.State?> = container.downloads.state
 
-    val sources: StateFlow<List<RepoSource>> = settings.customSources
-        .map { listOf(DefaultSources.official) + it }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, listOf(DefaultSources.official))
-
-    val source: StateFlow<RepoSource> = combine(sources, settings.sourceId) { list, id ->
-        list.firstOrNull { it.id == id } ?: list.first()
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, DefaultSources.official)
-
     private val _repoInstalled = MutableStateFlow<List<InstalledModule>>(emptyList())
     val repoInstalled: StateFlow<List<InstalledModule>> = _repoInstalled.asStateFlow()
 
@@ -87,9 +77,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
-
-    private val _addSource = MutableStateFlow(AddSourceState())
-    val addSourceState: StateFlow<AddSourceState> = _addSource.asStateFlow()
 
     private val _detail = MutableStateFlow<RepoModule?>(null)
     val detail: StateFlow<RepoModule?> = _detail.asStateFlow()
@@ -103,6 +90,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private var detailJob: Job? = null
     private var downloadJob: Job? = null
     private var installedRebuildJob: Job? = null
+    private var liveCheckJob: Job? = null
     private var detectedModules: List<InstalledModule> = emptyList()
     private var installedVersionMap: Map<String, InstalledPackageVersion> = emptyMap()
 
@@ -122,14 +110,17 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     init {
         rescan()
         viewModelScope.launch {
-            source.collectLatest { repoSource ->
-                loadMutex.withLock { container.repo.load(repoSource) }
-            }
+            loadMutex.withLock { container.repo.load(DefaultSources.official) }
         }
         viewModelScope.launch {
             modules.map { list -> list.map { it.packageName } }
                 .distinctUntilChanged()
                 .collectLatest { rebuildRepoInstalled() }
+        }
+        viewModelScope.launch {
+            repoInstalled.collectLatest { installed ->
+                if (installed.isNotEmpty()) refreshLiveUpdates()
+            }
         }
     }
 
@@ -170,13 +161,69 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun refresh() {
         rescan()
         viewModelScope.launch {
-            val repoSource = source.value
-            loadMutex.withLock { container.repo.load(repoSource) }
+            loadMutex.withLock { container.repo.load(DefaultSources.official) }
+            refreshLiveUpdates(force = true)
         }
     }
 
-    fun selectSource(id: String) {
-        settings.setSourceId(id)
+    /**
+     * The daily index is only fetched once a day. For installed modules, ask GitHub for the latest
+     * release and merge it when it is newer than both the daily data and the installed version.
+     */
+    private fun refreshLiveUpdates(force: Boolean = false) {
+        if (liveCheckJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (!force && now - settings.lastLiveCheck() < LIVE_UPDATE_INTERVAL_MS) return
+        val installed = repoInstalled.value
+        if (installed.isEmpty()) return
+        settings.setLastLiveCheck(now)
+
+        liveCheckJob = viewModelScope.launch {
+            val repoModules = container.repo.modules.value.associateBy { it.packageName }
+            val stopped = AtomicBoolean(false)
+            val semaphore = Semaphore(4)
+            coroutineScope {
+                installed.map { item ->
+                    async(Dispatchers.IO) {
+                        if (stopped.get()) return@async
+                        semaphore.withPermit {
+                            val module = repoModules[item.packageName] ?: return@withPermit
+                            val repoFullName = module.repoFullName ?: return@withPermit
+                            try {
+                                val live = container.liveApi.fetchLatest(repoFullName) ?: return@withPermit
+                                val liveVersion = ModuleVersion.parse(live.tag) ?: return@withPermit
+                                val dailyVersion = ModuleVersion.parse(module.latestRelease)
+                                if (dailyVersion != null &&
+                                    !liveVersion.isNewerThan(dailyVersion.code, dailyVersion.name)
+                                ) {
+                                    return@withPermit
+                                }
+                                if (!liveVersion.isNewerThan(item.versionCode, item.versionName)) {
+                                    return@withPermit
+                                }
+                                val release = live.toRepoRelease()
+                                container.repo.applyLiveRelease(module.packageName, live.tag, release)
+                                _detail.value = _detail.value?.let { detail ->
+                                    if (detail.packageName == module.packageName) {
+                                        detail.copy(
+                                            latestRelease = live.tag,
+                                            latestReleaseTime = release.publishedAt,
+                                            releases = listOf(release),
+                                        )
+                                    } else {
+                                        detail
+                                    }
+                                }
+                            } catch (_: LiveUpdateRateLimitException) {
+                                stopped.set(true)
+                            } catch (_: Exception) {
+                                // Keep the daily data when GitHub is unavailable.
+                            }
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
     }
 
     fun setChannel(channel: UpdateChannel) {
@@ -191,42 +238,13 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         settings.setUpdatesFirst(enabled)
     }
 
-    fun addSource(input: String) {
-        val base = normalizeRepoBase(input)
-        if (base == null) {
-            _addSource.value = AddSourceState(error = "Enter a valid repository URL")
-            return
-        }
-        viewModelScope.launch {
-            _addSource.value = AddSourceState(inProgress = true)
-            try {
-                container.api.fetchModules(sourceFromBase(base))
-                val added = settings.addCustomSource(base) ?: error("Could not add this repository")
-                settings.setSourceId(added.id)
-                _addSource.value = AddSourceState(added = added)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _addSource.value = AddSourceState(error = e.userMessage())
-            }
-        }
-    }
-
-    fun clearAddSourceState() {
-        _addSource.value = AddSourceState()
-    }
-
-    fun removeSource(id: String) {
-        settings.removeCustomSource(id)
-    }
-
     fun openModule(packageName: String) {
         detailJob?.cancel()
         _detail.value = container.repo.cachedModule(packageName)
         _detailError.value = null
         _detailLoading.value = true
         detailJob = viewModelScope.launch {
-            val loaded = container.repo.loadModule(source.value, packageName)
+            val loaded = container.repo.loadModule(DefaultSources.official, packageName)
             if (loaded != null) {
                 _detail.value = loaded
             } else if (_detail.value == null) {
@@ -335,7 +353,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     /** Resolves the newest APK for an installed module and starts installing it. */
     fun installLatest(module: RepoModule) {
         viewModelScope.launch {
-            val detailed = container.repo.loadModule(source.value, module.packageName) ?: module
+            val detailed = container.repo.loadModule(DefaultSources.official, module.packageName) ?: module
             val asset = detailed.releaseFor(channel.value)?.apkAssets?.firstOrNull()
             if (asset == null) {
                 message("No APK is available for ${module.displayName}")
@@ -387,6 +405,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         replace(Regex("[^A-Za-z0-9._-]"), "_").take(64).ifBlank { "module.apk" }
 
     companion object {
+        private const val LIVE_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000L
         fun factory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
             initializer { AppViewModel(container) }
         }

@@ -1,70 +1,31 @@
 package com.rushi.modulesmanager.data
 
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-
 enum class RepoFormat {
     /** The current paginated API: /module-list/{page}.json and /module/{package}.json. */
     MODERN,
 
     /** Detect between the paginated API and the older single modules.json document. */
     AUTO,
+
+    /** A single daily repos.json document from the xposed-modules data repository. */
+    REPOS_JSON,
 }
 
 data class RepoSource(
     val id: String,
     val name: String,
     val bases: List<String>,
-    val custom: Boolean = false,
-    val format: RepoFormat = RepoFormat.AUTO,
+    val format: RepoFormat = RepoFormat.REPOS_JSON,
 )
 
 object DefaultSources {
-    /**
-     * The same repository the LSPosed manager uses, with its documented fallbacks. Only the
-     * first host currently serves the paginated API, so the others are failover targets only.
-     */
+    /** The daily Xposed module index maintained by the app author. */
     val official = RepoSource(
-        id = "official",
-        name = "LSPosed Repository",
+        id = "xposed-modules",
+        name = "Xposed Modules",
         bases = listOf(
-            "https://modules.lsposed.org/",
-            "https://modules-blogcdn.lsposed.org/",
-            "https://modules-cloudflare.lsposed.org/",
+            "https://raw.githubusercontent.com/rushiranpise/xposed-modules/main/data/repos.json",
         ),
-        format = RepoFormat.MODERN,
-    )
-}
-
-/** Turns user input into a repository base URL ending in a slash, or null when it is not a URL. */
-fun normalizeRepoBase(input: String): String? {
-    var value = input.trim()
-    if (value.isEmpty()) return null
-    if (!value.startsWith("http://", ignoreCase = true) && !value.startsWith("https://", ignoreCase = true)) {
-        value = "https://$value"
-    }
-    val url = value.toHttpUrlOrNull() ?: return null
-    var path = url.encodedPath.trimEnd('/')
-    if (path.endsWith("/modules.json")) path = path.removeSuffix("/modules.json")
-    val normalizedPath = if (path.isEmpty()) "/" else "$path/"
-    val builder = url.newBuilder()
-        .encodedPath(normalizedPath)
-        .query(null)
-        .fragment(null)
-    return builder.build().toString()
-}
-
-fun sourceFromBase(base: String): RepoSource {
-    val url = base.toHttpUrlOrNull()
-    val host = url?.host ?: base
-    val defaultPort = if (url?.isHttps == true) 443 else 80
-    val port = url?.port?.takeIf { it != defaultPort }
-    val authority = if (port != null) "$host:$port" else host
-    val path = url?.encodedPath?.trim('/').orEmpty()
-    val name = if (path.isEmpty()) authority else "$authority/$path"
-    return RepoSource(
-        id = "custom:$base",
-        name = name,
-        bases = listOf(base),
-        custom = true,
+        format = RepoFormat.REPOS_JSON,
     )
 }

@@ -80,6 +80,8 @@ class RepoRepository(
 
     /** Loads the full module document (readme, all releases) and merges it into the list. */
     suspend fun loadModule(source: RepoSource, packageName: String): RepoModule? {
+        // The daily index already contains the module and its latest release.
+        if (source.format == RepoFormat.REPOS_JSON) return cachedModule(packageName)
         details[packageName]?.let { return it }
         return try {
             val module = api.fetchModule(source, packageName)
@@ -91,6 +93,21 @@ class RepoRepository(
             throw e
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /** Replaces the daily release with a newer release fetched live from GitHub. */
+    fun applyLiveRelease(packageName: String, tag: String, release: RepoRelease) {
+        _modules.value = _modules.value.map { module ->
+            if (module.packageName == packageName) {
+                module.copy(
+                    latestRelease = tag,
+                    latestReleaseTime = release.publishedAt,
+                    releases = listOf(release),
+                )
+            } else {
+                module
+            }
         }
     }
 

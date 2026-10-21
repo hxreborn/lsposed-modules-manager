@@ -87,6 +87,8 @@ data class RepoModule(
     val hide: Boolean,
     val updatedAt: String?,
     val stargazerCount: Int,
+    /** GitHub repo that hosts releases, used for live update checks. */
+    val repoFullName: String? = null,
 ) {
     val hasReleases: Boolean
         get() = releases.isNotEmpty() || betaReleases.isNotEmpty() || snapshotReleases.isNotEmpty()
@@ -131,22 +133,167 @@ data class RepoModule(
 }
 
 data class ModuleVersion(val code: Long, val name: String) {
-    fun isNewerThan(installedCode: Long, installedName: String?): Boolean =
-        code > installedCode || (code == installedCode && installedName?.replace(' ', '_') != name)
+    fun isNewerThan(installedCode: Long, installedName: String?): Boolean {
+        if (code > 0L) {
+            if (installedCode <= 0L) return true
+            return code > installedCode
+        }
+        return compareVersionNames(name, installedName) > 0
+    }
 
     companion object {
-        /** Repository versions are formatted as "versionCode-versionName". */
+        /** Handles both "versionCode-versionName" and plain tags like "v1.2.3". */
         fun parse(value: String?): ModuleVersion? {
             if (value.isNullOrBlank()) return null
             val parts = value.split('-', limit = 2)
-            if (parts.size < 2) return null
-            val code = parts[0].toLongOrNull() ?: return null
-            return ModuleVersion(code, parts[1])
+            if (parts.size == 2) {
+                val code = parts[0].toLongOrNull()
+                if (code != null) return ModuleVersion(code, parts[1])
+            }
+            return ModuleVersion(0, value)
         }
     }
 }
 
+private fun versionSegments(value: String?): List<String> {
+    if (value.isNullOrBlank()) return emptyList()
+    return value.trim().lowercase()
+        .removePrefix("v")
+        .split(Regex("[^0-9a-z]+"))
+        .filter { it.isNotEmpty() }
+}
+
+private fun compareVersionNames(left: String?, right: String?): Int {
+    val a = versionSegments(left)
+    val b = versionSegments(right)
+    val max = maxOf(a.size, b.size)
+    for (i in 0 until max) {
+        val x = a.getOrNull(i)
+        val y = b.getOrNull(i)
+        if (x == null && y == null) return 0
+        if (x == null) return if (y?.toLongOrNull() == 0L) 0 else -1
+        if (y == null) return if (x.toLongOrNull() == 0L) 0 else 1
+        val nx = x.toLongOrNull()
+        val ny = y.toLongOrNull()
+        val cmp = when {
+            nx != null && ny != null -> nx.compareTo(ny)
+            nx != null -> 1
+            ny != null -> -1
+            else -> x.compareTo(y)
+        }
+        if (cmp != 0) return cmp
+    }
+    return 0
+}
+
 object RepoJson {
+    /** Parses the daily data/repos.json file from the xposed-modules data repository. */
+    fun parseRepos(json: String): List<RepoModule> {
+        val array = JSONArray(json)
+        val byPackage = LinkedHashMap<String, RepoModule>()
+        for (index in 0 until array.length()) {
+            val obj = array.optJSONObject(index) ?: continue
+            val module = runCatching { parseRepoEntry(obj) }.getOrNull() ?: continue
+            val existing = byPackage[module.packageName]
+            if (existing == null || isNewerModule(module, existing)) {
+                byPackage[module.packageName] = module
+            }
+        }
+        return byPackage.values.toList()
+    }
+
+    private fun prettifyName(value: String): String =
+        value.replace('-', ' ')
+            .replace('_', ' ')
+            .replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+
+    private fun isNewerModule(candidate: RepoModule, existing: RepoModule): Boolean {
+        val candidateTime = parseInstant(candidate.latestReleaseTime)
+        val existingTime = parseInstant(existing.latestReleaseTime)
+        if (candidateTime == null) return false
+        if (existingTime == null) return true
+        return candidateTime.isAfter(existingTime)
+    }
+
+    private fun parseRepoEntry(obj: JSONObject): RepoModule? {
+        val orgRepo = obj.optString("org_repo")
+        val packageName = obj.optString("package").takeIf { it.isNotBlank() }
+            ?: orgRepo.takeIf { it.startsWith("Xposed-Modules-Repo/") }
+                ?.substringAfter("Xposed-Modules-Repo/")
+                ?.takeIf { it.isNotBlank() }
+            ?: return null
+
+        val release = obj.optJSONObject("release") ?: return null
+        val apkUrl = release.optString("apk_url").takeIf { it.isNotBlank() } ?: return null
+        val tag = release.optString("tag").takeIf { it.isNotBlank() }
+            ?: release.optString("name").takeIf { it.isNotBlank() }
+            ?: return null
+        val releaseUrl = release.optString("html_url").takeIf { it.isNotBlank() && it != "null" }
+        val publishedAt = release.optString("published_at").takeIf { it.isNotBlank() && it != "null" }
+        val releaseName = release.optString("name").takeIf { it.isNotBlank() && it != "null" }
+        val htmlUrl = obj.optString("html_url").takeIf { it.isNotBlank() && it != "null" }
+        val fullName = obj.optString("full_name").takeIf { it.isNotBlank() && it != "null" }
+        val metadataName = obj.optJSONObject("metadata")
+            ?.optString("name")
+            ?.takeIf { it.isNotBlank() && it != "null" }
+        val repoName = (fullName ?: packageName).substringAfter('/')
+        val displayName = metadataName ?: if (repoName != packageName && repoName.isNotBlank()) {
+            prettifyName(repoName)
+        } else {
+            prettifyName(packageName.substringAfterLast('.'))
+        }
+        val summary = obj.optString("summary").takeIf { it.isNotBlank() && it != "null" }
+            ?: obj.optString("description").takeIf { it.isNotBlank() && it != "null" }
+        val owner = obj.optJSONObject("owner")
+        val ownerLogin = owner?.optString("login")?.takeIf { it.isNotBlank() && it != "null" }
+        val assetName = apkUrl.substringAfterLast('/').substringBefore('?').ifBlank { "module.apk" }
+        val asset = RepoAsset(
+            name = assetName,
+            contentType = "application/vnd.android.package-archive",
+            downloadUrl = apkUrl,
+            downloadCount = 0,
+            size = 0L,
+        )
+        val parsedRelease = RepoRelease(
+            name = releaseName,
+            tagName = tag,
+            url = releaseUrl,
+            descriptionHtml = null,
+            publishedAt = publishedAt,
+            isPrerelease = release.optBoolean("prerelease", false),
+            assets = listOf(asset),
+        )
+
+        return RepoModule(
+            packageName = packageName,
+            displayName = displayName,
+            summary = summary,
+            url = releaseUrl ?: htmlUrl,
+            homepageUrl = obj.optString("homepage").takeIf { it.isNotBlank() && it != "null" },
+            sourceUrl = obj.optString("source_url").takeIf { it.isNotBlank() && it != "null" } ?: htmlUrl,
+            latestRelease = tag,
+            latestReleaseTime = publishedAt,
+            latestBetaRelease = null,
+            latestBetaReleaseTime = null,
+            latestSnapshotRelease = null,
+            latestSnapshotReleaseTime = null,
+            releases = listOf(parsedRelease),
+            betaReleases = emptyList(),
+            snapshotReleases = emptyList(),
+            readme = null,
+            readmeHtml = null,
+            collaborators = listOfNotNull(ownerLogin?.let { RepoCollaborator(it, null) }),
+            scope = parseStrings(obj.optJSONArray("scope")),
+            hide = false,
+            updatedAt = obj.optString("pushed_at").takeIf { it.isNotBlank() && it != "null" } ?: publishedAt,
+            stargazerCount = obj.optInt("stargazers_count", 0),
+            repoFullName = orgRepo.takeIf { it.isNotBlank() && it != "null" } ?: fullName,
+        )
+    }
+
     fun parseModules(json: String): List<RepoModule> = parseModules(JSONArray(json))
 
     fun parseModules(array: JSONArray): List<RepoModule> {

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,8 +27,6 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -41,14 +38,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,13 +61,10 @@ import com.rushi.modulesmanager.ModuleUpdate
 import com.rushi.modulesmanager.data.InstalledPackageVersion
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoModule
-import com.rushi.modulesmanager.data.RepoSource
 import com.rushi.modulesmanager.data.SortMode
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.data.formatDate
-import com.rushi.modulesmanager.data.formatRelativeDate
 import com.rushi.modulesmanager.data.parseInstant
-import com.rushi.modulesmanager.ui.components.AddRepositoryDialog
 import com.rushi.modulesmanager.ui.components.CountedFilterChip
 import com.rushi.modulesmanager.ui.components.EmptyState
 import com.rushi.modulesmanager.ui.components.ErrorBanner
@@ -80,7 +72,6 @@ import com.rushi.modulesmanager.ui.components.HeaderDivider
 import com.rushi.modulesmanager.ui.components.LoadingState
 import com.rushi.modulesmanager.ui.components.ModuleAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
-import com.rushi.modulesmanager.ui.components.RepositoryPicker
 import com.rushi.modulesmanager.ui.components.StatusPill
 import com.rushi.modulesmanager.ui.components.VerticalScrollbar
 import kotlinx.coroutines.launch
@@ -107,16 +98,10 @@ fun RepoListScreen(
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val lastUpdated by viewModel.lastUpdated.collectAsStateWithLifecycle()
-    val source by viewModel.source.collectAsStateWithLifecycle()
-    val sources by viewModel.sources.collectAsStateWithLifecycle()
-    val addSourceState by viewModel.addSourceState.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(RepoFilter.ALL) }
     var showSortMenu by remember { mutableStateOf(false) }
-    var showSourceSheet by remember { mutableStateOf(false) }
-    var showAddDialog by remember { mutableStateOf(false) }
 
     val installedByPackage = installedVersions
     val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
@@ -155,12 +140,6 @@ fun RepoListScreen(
         )
     }
 
-    LaunchedEffect(addSourceState.added) {
-        if (addSourceState.added != null) {
-            showAddDialog = false
-            viewModel.clearAddSourceState()
-        }
-    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -224,34 +203,6 @@ fun RepoListScreen(
                 .padding(padding)
                 .fillMaxSize(),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AssistChip(
-                    onClick = { showSourceSheet = true },
-                    label = {
-                        Text(
-                            text = source.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Outlined.Storage, contentDescription = null, modifier = Modifier.size(18.dp))
-                    },
-                    modifier = Modifier.widthIn(max = 230.dp),
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = formatRelativeDate(lastUpdated?.let { Instant.ofEpochMilli(it).toString() }) ?: "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -324,9 +275,9 @@ fun RepoListScreen(
                                 EmptyState(
                                     icon = Icons.Outlined.ErrorOutline,
                                     title = "Repository unavailable",
-                                    body = error ?: "No modules were found at ${source.name}.",
-                                    actionLabel = "Choose repository",
-                                    onAction = { showSourceSheet = true },
+                                    body = error ?: "No modules were found in the repository.",
+                                    actionLabel = "Retry",
+                                    onAction = viewModel::refresh,
                                 )
                             } else {
                                 EmptyState(
@@ -387,38 +338,6 @@ fun RepoListScreen(
         }
     }
 
-    if (showSourceSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSourceSheet = false },
-            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) {
-            RepositoryPicker(
-                sources = sources,
-                selected = source,
-                onSelect = { id ->
-                    viewModel.selectSource(id)
-                    showSourceSheet = false
-                },
-                onRemove = viewModel::removeSource,
-                onAdd = {
-                    showSourceSheet = false
-                    showAddDialog = true
-                },
-            )
-        }
-    }
-
-    if (showAddDialog) {
-        AddRepositoryDialog(
-            inProgress = addSourceState.inProgress,
-            error = addSourceState.error,
-            onDismiss = {
-                showAddDialog = false
-                viewModel.clearAddSourceState()
-            },
-            onAdd = viewModel::addSource,
-        )
-    }
 }
 
 @Composable

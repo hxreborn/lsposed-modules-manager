@@ -39,6 +39,10 @@ class RepoApi(private val client: OkHttpClient) {
 
     private suspend fun fetchModulesFromBase(source: RepoSource, base: String): FetchedModules {
         return when (source.format) {
+            RepoFormat.REPOS_JSON -> {
+                val raw = fetch(base)
+                FetchedModules(raw, RepoJson.parseRepos(raw), base)
+            }
             RepoFormat.MODERN -> fetchModern(base)
             RepoFormat.AUTO -> try {
                 fetchModern(base)

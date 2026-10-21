@@ -103,7 +103,6 @@ fun ModuleDetailScreen(
     val detailError by viewModel.detailError.collectAsStateWithLifecycle()
     val installedVersions by viewModel.installedVersions.collectAsStateWithLifecycle()
     val channel by viewModel.channel.collectAsStateWithLifecycle()
-    val source by viewModel.source.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -252,7 +251,6 @@ fun ModuleDetailScreen(
                     )
                     else -> InformationTab(
                         module = module,
-                        sourceName = source.name,
                         onOpenLink = viewModel::openLink,
                     )
                 }
@@ -633,11 +631,17 @@ private fun AssetRow(asset: RepoAsset, onInstall: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = "${formatBytes(asset.size)} - ${asset.downloadCount} downloads",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val details = buildList {
+                if (asset.size > 0) add(formatBytes(asset.size))
+                if (asset.downloadCount > 0) add("${asset.downloadCount} downloads")
+            }.joinToString(" - ")
+            if (details.isNotEmpty()) {
+                Text(
+                    text = details,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         FilledTonalButton(onClick = onInstall) {
@@ -651,7 +655,6 @@ private fun AssetRow(asset: RepoAsset, onInstall: () -> Unit) {
 @Composable
 private fun InformationTab(
     module: RepoModule,
-    sourceName: String,
     onOpenLink: (String) -> Unit,
 ) {
     Column(
@@ -661,7 +664,6 @@ private fun InformationTab(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        InfoRow("Repository", sourceName)
         module.url?.let { InfoRow("Releases", it, onClick = { onOpenLink(it) }) }
         if (module.collaborators.isNotEmpty()) {
             InfoRow(
