@@ -47,6 +47,7 @@ import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.BuildConfig
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.ui.components.AddRepositoryDialog
+import com.rushi.modulesmanager.ui.components.HeaderDivider
 import com.rushi.modulesmanager.ui.components.RepositoryPicker
 
 @Composable
@@ -71,12 +72,15 @@ fun SettingsScreen(viewModel: AppViewModel) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Settings") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                HeaderDivider()
+            }
         },
     ) { padding ->
         Column(

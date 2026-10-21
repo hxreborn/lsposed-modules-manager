@@ -53,6 +53,7 @@ import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.RepoModule
 import com.rushi.modulesmanager.ui.components.CountedFilterChip
 import com.rushi.modulesmanager.ui.components.EmptyState
+import com.rushi.modulesmanager.ui.components.HeaderDivider
 import com.rushi.modulesmanager.ui.components.InstalledAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.StatusPill
@@ -85,17 +86,20 @@ fun InstalledScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text("Installed") },
-                actions = {
-                    IconButton(onClick = { viewModel.rescan(showMessage = true) }) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "Rescan installed modules")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Installed") },
+                    actions = {
+                        IconButton(onClick = { viewModel.rescan(showMessage = true) }) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = "Rescan installed modules")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                HeaderDivider()
+            }
         },
     ) { padding ->
         Column(

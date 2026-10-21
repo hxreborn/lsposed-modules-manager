@@ -41,8 +41,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -60,7 +60,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,6 +78,7 @@ import com.rushi.modulesmanager.ui.components.AddRepositoryDialog
 import com.rushi.modulesmanager.ui.components.CountedFilterChip
 import com.rushi.modulesmanager.ui.components.EmptyState
 import com.rushi.modulesmanager.ui.components.ErrorBanner
+import com.rushi.modulesmanager.ui.components.HeaderDivider
 import com.rushi.modulesmanager.ui.components.LoadingState
 import com.rushi.modulesmanager.ui.components.ModuleAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
@@ -126,7 +126,6 @@ fun RepoListScreen(
         modules.count { installedByPackage.containsKey(it.packageName) }
     }
     val notInstalledInRepo = modules.size - installedInRepo
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -167,58 +166,59 @@ fun RepoListScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = { Text("Modules") },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-                actions = {
-                    IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "Refresh")
-                    }
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = "Sort")
+            Column {
+                TopAppBar(
+                    title = { Text("Modules") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    actions = {
+                        IconButton(onClick = viewModel::refresh) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = "Refresh")
                         }
-                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Sort by name") },
-                                leadingIcon = {
-                                    if (sortMode == SortMode.NAME) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp))
-                                },
-                                onClick = {
-                                    viewModel.setSortMode(SortMode.NAME)
-                                    showSortMenu = false
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Sort by last update") },
-                                leadingIcon = {
-                                    if (sortMode == SortMode.UPDATED) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp))
-                                },
-                                onClick = {
-                                    viewModel.setSortMode(SortMode.UPDATED)
-                                    showSortMenu = false
-                                },
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Updates first") },
-                                leadingIcon = {
-                                    Checkbox(
-                                        checked = updatesFirst,
-                                        onCheckedChange = null,
-                                    )
-                                },
-                                onClick = { viewModel.setUpdatesFirst(!updatesFirst) },
-                            )
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = "Sort")
+                            }
+                            DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Sort by name") },
+                                    leadingIcon = {
+                                        if (sortMode == SortMode.NAME) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp))
+                                    },
+                                    onClick = {
+                                        viewModel.setSortMode(SortMode.NAME)
+                                        showSortMenu = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Sort by last update") },
+                                    leadingIcon = {
+                                        if (sortMode == SortMode.UPDATED) Icon(Icons.Outlined.Check, null) else Spacer(Modifier.size(24.dp))
+                                    },
+                                    onClick = {
+                                        viewModel.setSortMode(SortMode.UPDATED)
+                                        showSortMenu = false
+                                    },
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Updates first") },
+                                    leadingIcon = {
+                                        Checkbox(
+                                            checked = updatesFirst,
+                                            onCheckedChange = null,
+                                        )
+                                    },
+                                    onClick = { viewModel.setUpdatesFirst(!updatesFirst) },
+                                )
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+                HeaderDivider()
+            }
         },
     ) { padding ->
         Column(
@@ -336,10 +336,10 @@ fun RepoListScreen(
                                     icon = Icons.Outlined.Extension,
                                     title = "Nothing here",
                                     body = when (filter) {
-                                    RepoFilter.UPDATES -> "Every installed module is up to date."
-                                    RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
-                                    RepoFilter.NOT_INSTALLED -> "Every module in this repository is installed."
-                                    RepoFilter.ALL -> "No module matches \"$query\"."
+                                        RepoFilter.UPDATES -> "Every installed module is up to date."
+                                        RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
+                                        RepoFilter.NOT_INSTALLED -> "Every module in this repository is installed."
+                                        RepoFilter.ALL -> "No module matches \"$query\"."
                                     },
                                 )
                             }
