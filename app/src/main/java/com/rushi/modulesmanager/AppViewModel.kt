@@ -91,6 +91,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private var downloadJob: Job? = null
     private var installedRebuildJob: Job? = null
     private var liveCheckJob: Job? = null
+    private var discoveryJob: Job? = null
+    private val discoveryAttempted = mutableSetOf<String>()
     private var detectedModules: List<InstalledModule> = emptyList()
     private var installedVersionMap: Map<String, InstalledPackageVersion> = emptyMap()
 
@@ -155,6 +157,70 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                     .toList()
             }
             _repoInstalled.value = full
+            discoverMissingInstalledModules()
+        }
+    }
+
+    /**
+     * Some entries in the daily index have no fetched release. If one of those packages is
+     * installed, ask its GitHub mirror for a release and add it, so installed counts stay exact.
+     */
+    private fun discoverMissingInstalledModules() {
+        if (discoveryJob?.isActive == true) return
+        val candidates = container.repo.missingReleasePackages().filter { packageName ->
+            installedVersionMap.containsKey(packageName) &&
+                container.repo.cachedModule(packageName) == null &&
+                packageName !in discoveryAttempted
+        }
+        if (candidates.isEmpty()) return
+        discoveryAttempted += candidates
+
+        discoveryJob = viewModelScope.launch {
+            for (packageName in candidates) {
+                val repo = "Xposed-Modules-Repo/$packageName"
+                try {
+                    val live = container.liveApi.fetchLatest(repo) ?: continue
+                    val release = live.toRepoRelease()
+                    val segment = packageName.substringAfterLast('.')
+                        .replace('-', ' ')
+                        .replace('_', ' ')
+                        .trim()
+                    val displayName = segment
+                        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                        .ifBlank { packageName }
+                    container.repo.addDiscoveredModule(
+                        RepoModule(
+                            packageName = packageName,
+                            displayName = displayName,
+                            summary = null,
+                            url = release.url,
+                            homepageUrl = null,
+                            sourceUrl = "https://github.com/$repo",
+                            latestRelease = live.tag,
+                            latestReleaseTime = release.publishedAt,
+                            latestBetaRelease = null,
+                            latestBetaReleaseTime = null,
+                            latestSnapshotRelease = null,
+                            latestSnapshotReleaseTime = null,
+                            releases = listOf(release),
+                            betaReleases = emptyList(),
+                            snapshotReleases = emptyList(),
+                            readme = null,
+                            readmeHtml = null,
+                            collaborators = emptyList(),
+                            scope = emptyList(),
+                            hide = false,
+                            updatedAt = release.publishedAt,
+                            stargazerCount = 0,
+                            repoFullName = repo,
+                        ),
+                    )
+                } catch (_: LiveUpdateRateLimitException) {
+                    break
+                } catch (_: Exception) {
+                    // Leave the module out when its GitHub mirror has no release.
+                }
+            }
         }
     }
 

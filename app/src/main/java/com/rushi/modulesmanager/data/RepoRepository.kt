@@ -34,6 +34,7 @@ class RepoRepository(
 
     private val details = ConcurrentHashMap<String, RepoModule>()
     private var activeSourceId: String? = null
+    private var packagesWithoutReleases: Set<String> = emptySet()
 
     suspend fun load(source: RepoSource) {
         val switching = activeSourceId != source.id
@@ -53,6 +54,9 @@ class RepoRepository(
             coroutineContext.ensureActive()
             if (activeSourceId != source.id) return
             _modules.value = fetched.modules.filterNot { it.hide }
+            if (source.format == RepoFormat.REPOS_JSON) {
+                packagesWithoutReleases = RepoJson.packagesWithoutReleases(fetched.rawJson)
+            }
             _lastUpdated.value = System.currentTimeMillis()
             _error.value = null
             withContext(Dispatchers.IO) { writeCache(source, fetched.rawJson) }
@@ -96,6 +100,14 @@ class RepoRepository(
         }
     }
 
+    fun missingReleasePackages(): Set<String> = packagesWithoutReleases
+
+    /** Adds an installed module that the daily index knows about but has no release for. */
+    fun addDiscoveredModule(module: RepoModule) {
+        if (_modules.value.any { it.packageName == module.packageName }) return
+        _modules.value = _modules.value + module
+    }
+
     /** Replaces the daily release with a newer release fetched live from GitHub. */
     fun applyLiveRelease(packageName: String, tag: String, release: RepoRelease) {
         _modules.value = _modules.value.map { module ->
@@ -130,7 +142,14 @@ class RepoRepository(
         val file = cacheFile(source)
         if (!file.isFile) return null
         return runCatching {
-            CachedRepo(RepoJson.parseModules(file.readText()).filterNot { it.hide }, file.lastModified())
+            val raw = file.readText()
+            val modules = if (source.format == RepoFormat.REPOS_JSON) {
+                packagesWithoutReleases = RepoJson.packagesWithoutReleases(raw)
+                RepoJson.parseRepos(raw)
+            } else {
+                RepoJson.parseModules(raw)
+            }
+            CachedRepo(modules.filterNot { it.hide }, file.lastModified())
         }.getOrNull()
     }
 

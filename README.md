@@ -78,6 +78,9 @@ app/src/main/java/com/rushi/modulesmanager/
 - Custom repositories and the repository picker were removed. The app uses the daily index only.
 - The Installed tab is scoped to the index. Modules installed from other sources are not listed
   there, which keeps its count aligned with the repository filters.
+- If an installed package is in the index but its release was not fetched by the collector, the
+  app asks its `Xposed-Modules-Repo` GitHub mirror for the latest release and adds it. This keeps
+  installed counts complete when the daily index has a missing release.
 - The index has one APK URL per module, usually the release asset picked by the data collector.
   Live checks expose all APK assets from the latest GitHub release when an update is found.
 - Installing and updating requires the system "install unknown apps" permission. Updates signed

@@ -218,13 +218,32 @@ object RepoJson {
         return candidateTime.isAfter(existingTime)
     }
 
-    private fun parseRepoEntry(obj: JSONObject): RepoModule? {
+    /** Packages present in the index but without a fetched release, used for installed fallback. */
+    fun packagesWithoutReleases(json: String): Set<String> {
+        val array = JSONArray(json)
+        val result = HashSet<String>()
+        for (index in 0 until array.length()) {
+            val obj = array.optJSONObject(index) ?: continue
+            val packageName = packageOf(obj) ?: continue
+            val release = obj.optJSONObject("release")
+            if (release == null || release.optString("apk_url").isBlank()) {
+                result += packageName
+            }
+        }
+        return result
+    }
+
+    private fun packageOf(obj: JSONObject): String? {
         val orgRepo = obj.optString("org_repo")
-        val packageName = obj.optString("package").takeIf { it.isNotBlank() }
+        return obj.optString("package").takeIf { it.isNotBlank() }
             ?: orgRepo.takeIf { it.startsWith("Xposed-Modules-Repo/") }
                 ?.substringAfter("Xposed-Modules-Repo/")
                 ?.takeIf { it.isNotBlank() }
-            ?: return null
+    }
+
+    private fun parseRepoEntry(obj: JSONObject): RepoModule? {
+        val orgRepo = obj.optString("org_repo")
+        val packageName = packageOf(obj) ?: return null
 
         val release = obj.optJSONObject("release") ?: return null
         val apkUrl = release.optString("apk_url").takeIf { it.isNotBlank() } ?: return null
