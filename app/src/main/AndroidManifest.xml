@@ -9,7 +9,6 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <queries>
-        <package android:name="org.lsposed.manager" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />

@@ -3,7 +3,7 @@
 An Android client for LSPosed module repositories. It helps you find, install and update
 Xposed modules without browsing GitHub releases by hand. It is a companion to LSPosed, not a
 replacement for the LSPosed framework: installing a module here only puts the APK on the device,
-enabling it still happens in LSPosed Manager.
+enabling it still happens in LSPosed.
 
 - Package: `com.rushi.modulesmanager`
 - App name: Modules Manager
@@ -27,7 +27,7 @@ enabling it still happens in LSPosed Manager.
   before handing it to the system installer.
 - Channel selection: stable, beta and snapshot releases.
 - Installed screen detects Xposed modules through their package metadata and shows which have
-  updates. It can open LSPosed Manager or the module's own settings screen.
+  updates, with a shortcut to each module's own settings screen.
 - Material 3 UI with dynamic color, dark mode and a generated monogram/GitHub avatar per module.
 
 ## Repository format

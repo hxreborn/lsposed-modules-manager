@@ -80,9 +80,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private val _installed = MutableStateFlow<List<InstalledModule>>(emptyList())
     val installed: StateFlow<List<InstalledModule>> = _installed.asStateFlow()
 
-    private val _managerInstalled = MutableStateFlow(false)
-    val managerInstalled: StateFlow<Boolean> = _managerInstalled.asStateFlow()
-
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
 
@@ -127,7 +124,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val scanned = withContext(Dispatchers.IO) { container.scanner.scan() }
             _installed.value = scanned
-            _managerInstalled.value = withContext(Dispatchers.IO) { container.scanner.isManagerInstalled() }
             if (showMessage) message("Found ${scanned.size} installed modules")
         }
     }
@@ -320,7 +316,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     fun openManager() {
         if (!container.scanner.openManager()) {
-            message("LSPosed Manager is not installed")
+            message("Could not open LSPosed")
         }
     }
 

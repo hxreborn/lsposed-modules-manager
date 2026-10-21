@@ -16,9 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
@@ -30,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -61,7 +58,6 @@ fun InstalledScreen(
     val installed by viewModel.installed.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
     val modules by viewModel.modules.collectAsStateWithLifecycle()
-    val managerInstalled by viewModel.managerInstalled.collectAsStateWithLifecycle()
 
     var updatesOnly by rememberSaveable { mutableStateOf(false) }
 
@@ -111,14 +107,6 @@ fun InstalledScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(key = "manager") {
-                ManagerCard(
-                    installed = managerInstalled,
-                    onOpen = viewModel::openManager,
-                    onGet = { viewModel.openLink(LSPOSED_RELEASES) },
-                )
-            }
-
             item(key = "filter") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +134,7 @@ fun InstalledScreen(
                         body = if (updatesOnly) {
                             "All installed modules are on their latest version in this repository."
                         } else {
-                            "Install modules from the Modules tab, then enable them in LSPosed Manager."
+                            "Install modules from the Modules tab, then enable them in LSPosed."
                         },
                     )
                 }
@@ -161,62 +149,6 @@ fun InstalledScreen(
                         onUpdate = { update -> viewModel.installLatest(update.module) },
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ManagerCard(
-    installed: Boolean,
-    onOpen: () -> Unit,
-    onGet: () -> Unit,
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (installed) {
-                MaterialTheme.colorScheme.surfaceContainer
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-        ),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = if (installed) Icons.Outlined.CheckCircle else Icons.Outlined.Info,
-                contentDescription = null,
-                tint = if (installed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (installed) "LSPosed Manager detected" else "LSPosed Manager not installed",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    text = if (installed) {
-                        "Enable or disable modules in the LSPosed manager."
-                    } else {
-                        "Modules Manager only handles discovery and APKs. Install LSPosed to run modules."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (installed) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    },
-                )
-            }
-            if (installed) {
-                TextButton(onClick = onOpen) { Text("Open") }
-            } else {
-                TextButton(onClick = onGet) { Text("Get") }
             }
         }
     }
@@ -295,4 +227,3 @@ private fun InstalledCard(
     }
 }
 
-private const val LSPOSED_RELEASES = "https://github.com/LSPosed/LSPosed/releases/latest"

@@ -54,7 +54,6 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val source by viewModel.source.collectAsStateWithLifecycle()
     val sources by viewModel.sources.collectAsStateWithLifecycle()
-    val managerInstalled by viewModel.managerInstalled.collectAsStateWithLifecycle()
     val installed by viewModel.installed.collectAsStateWithLifecycle()
     val addSourceState by viewModel.addSourceState.collectAsStateWithLifecycle()
 
@@ -117,19 +116,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SectionTitle("LSPosed")
-            SettingsRow(
-                icon = Icons.Outlined.Extension,
-                title = "LSPosed Manager",
-                subtitle = if (managerInstalled) "Installed - tap to open" else "Not installed",
-                onClick = {
-                    if (managerInstalled) {
-                        viewModel.openManager()
-                    } else {
-                        viewModel.openLink(LSPOSED_RELEASES)
-                    }
-                },
-            )
+            SectionTitle("Modules")
             SettingsRow(
                 icon = Icons.Outlined.Apps,
                 title = "Installed modules",
@@ -153,7 +140,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
 
             Text(
                 text = "Modules Manager is a repository client. It discovers and installs Xposed modules, " +
-                    "but does not hook apps itself. Enabling a module is done in LSPosed Manager.",
+                    "but does not hook apps itself. Enabling a module is done in LSPosed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -287,4 +274,3 @@ private fun SettingsRow(
     }
 }
 
-private const val LSPOSED_RELEASES = "https://github.com/LSPosed/LSPosed/releases/latest"

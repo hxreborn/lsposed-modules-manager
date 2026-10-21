@@ -58,14 +58,6 @@ class InstalledModuleScanner(private val context: Context) {
         else -> emptyList()
     }
 
-    fun isManagerInstalled(): Boolean = try {
-        @Suppress("DEPRECATION")
-        context.packageManager.getPackageInfo(MANAGER_PACKAGE, 0)
-        true
-    } catch (_: PackageManager.NameNotFoundException) {
-        false
-    }
-
     fun openManager(): Boolean {
         val intent = context.packageManager.getLaunchIntentForPackage(MANAGER_PACKAGE) ?: return false
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -79,6 +71,6 @@ class InstalledModuleScanner(private val context: Context) {
     }
 
     companion object {
-        const val MANAGER_PACKAGE = "org.lsposed.manager"
+        private const val MANAGER_PACKAGE = "org.lsposed.manager"
     }
 }
