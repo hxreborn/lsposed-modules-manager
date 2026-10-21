@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +52,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -572,14 +574,27 @@ private fun ReleaseCard(
             }
             val notes = stripHtml(release.descriptionHtml)
             if (!notes.isNullOrBlank()) {
+                var expanded by rememberSaveable { mutableStateOf(false) }
+                var canExpand by rememberSaveable { mutableStateOf(false) }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = notes,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 4,
+                    maxLines = if (expanded) Int.MAX_VALUE else 4,
                     overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { layout ->
+                        if (!expanded && layout.hasVisualOverflow) canExpand = true
+                    },
                 )
+                if (canExpand) {
+                    TextButton(
+                        onClick = { expanded = !expanded },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                    ) {
+                        Text(if (expanded) "Show less" else "Read more")
+                    }
+                }
             }
             if (release.apkAssets.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
