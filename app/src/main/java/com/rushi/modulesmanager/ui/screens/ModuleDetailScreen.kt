@@ -76,7 +76,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.ModuleUpdate
-import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoAsset
 import com.rushi.modulesmanager.data.RepoModule
@@ -102,7 +101,7 @@ fun ModuleDetailScreen(
     val detail by viewModel.detail.collectAsStateWithLifecycle()
     val loading by viewModel.detailLoading.collectAsStateWithLifecycle()
     val detailError by viewModel.detailError.collectAsStateWithLifecycle()
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val installedVersions by viewModel.installedVersions.collectAsStateWithLifecycle()
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val source by viewModel.source.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
@@ -113,7 +112,10 @@ fun ModuleDetailScreen(
 
     val context = LocalContext.current
     val module = detail
-    val installedModule = installed.firstOrNull { it.packageName == packageName }
+    val installedVersion = installedVersions[packageName]?.versionName
+    val installedHasLauncher = remember(packageName, installedVersion) {
+        context.packageManager.getLaunchIntentForPackage(packageName) != null
+    }
     val update = updates.firstOrNull { it.installed.packageName == packageName }
     val release = module?.releaseFor(channel)
     val primaryAsset = release?.apkAssets?.firstOrNull()
@@ -200,7 +202,8 @@ fun ModuleDetailScreen(
 
             DetailHeader(
                 module = module,
-                installed = installedModule,
+                installedVersion = installedVersion,
+                installedHasLauncher = installedHasLauncher,
                 update = update,
                 latest = latest,
                 channel = channel,
@@ -292,7 +295,8 @@ fun ModuleDetailScreen(
 @Composable
 private fun DetailHeader(
     module: RepoModule,
-    installed: InstalledModule?,
+    installedVersion: String?,
+    installedHasLauncher: Boolean,
     update: ModuleUpdate?,
     latest: ModuleVersion?,
     channel: UpdateChannel,
@@ -302,6 +306,7 @@ private fun DetailHeader(
 ) {
     val updateVersion = update?.version
     val hasUpdate = updateVersion != null
+    val isInstalled = installedVersion != null
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -328,15 +333,15 @@ private fun DetailHeader(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
-                        installed != null -> StatusPill(
-                            text = "Installed ${installed.versionName.orEmpty()}".trim(),
+                        isInstalled -> StatusPill(
+                            text = "Installed ${installedVersion.orEmpty()}".trim(),
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                         latest != null -> StatusPill(text = "Latest ${latest.name}")
                     }
-                    if (installed != null && hasUpdate) {
-                        StatusPill(text = "Installed ${installed.versionName.orEmpty()}".trim())
+                    if (isInstalled && hasUpdate) {
+                        StatusPill(text = "Installed ${installedVersion.orEmpty()}".trim())
                     }
                 }
             }
@@ -355,20 +360,20 @@ private fun DetailHeader(
         Spacer(Modifier.height(14.dp))
         val primaryLabel = when {
             hasUpdate -> "Update"
-            installed != null && installed.hasLauncher -> "Open"
-            installed != null -> "Installed"
+            isInstalled && installedHasLauncher -> "Open"
+            isInstalled -> "Installed"
             else -> "Install"
         }
         val primaryEnabled = when {
             hasUpdate -> primaryAsset != null
-            installed != null -> installed.hasLauncher
+            isInstalled -> installedHasLauncher
             else -> primaryAsset != null
         }
         Button(
             onClick = {
                 when {
-                    hasUpdate || installed == null -> onInstall()
-                    installed.hasLauncher -> onOpenModule()
+                    hasUpdate || !isInstalled -> onInstall()
+                    installedHasLauncher -> onOpenModule()
                     else -> Unit
                 }
             },
@@ -376,7 +381,7 @@ private fun DetailHeader(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(
-                imageVector = if (installed != null && !hasUpdate) {
+                imageVector = if (isInstalled && !hasUpdate) {
                     Icons.Outlined.PlayArrow
                 } else {
                     Icons.Outlined.Download

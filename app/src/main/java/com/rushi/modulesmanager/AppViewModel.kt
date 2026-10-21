@@ -13,6 +13,7 @@ import com.rushi.modulesmanager.data.ApkInstaller
 import com.rushi.modulesmanager.data.DefaultSources
 import com.rushi.modulesmanager.data.DownloadCenter
 import com.rushi.modulesmanager.data.InstalledModule
+import com.rushi.modulesmanager.data.InstalledPackageVersion
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoAsset
 import com.rushi.modulesmanager.data.RepoModule
@@ -80,6 +81,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private val _installed = MutableStateFlow<List<InstalledModule>>(emptyList())
     val installed: StateFlow<List<InstalledModule>> = _installed.asStateFlow()
 
+    private val _installedVersions = MutableStateFlow<Map<String, InstalledPackageVersion>>(emptyMap())
+    val installedVersions: StateFlow<Map<String, InstalledPackageVersion>> = _installedVersions.asStateFlow()
+
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
 
@@ -123,8 +127,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun rescan(showMessage: Boolean = false) {
         viewModelScope.launch {
             val scanned = withContext(Dispatchers.IO) { container.scanner.scan() }
-            _installed.value = scanned
-            if (showMessage) message("Found ${scanned.size} installed modules")
+            _installed.value = scanned.modules
+            _installedVersions.value = scanned.versions
+            if (showMessage) message("Found ${scanned.modules.size} installed modules")
         }
     }
 
@@ -254,9 +259,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 if (info.packageName != module.packageName) {
                     throw IllegalStateException("This release contains ${info.packageName}, not ${module.packageName}")
                 }
-                val installedModule = _installed.value.firstOrNull { it.packageName == module.packageName }
-                if (installedModule != null) {
-                    if (info.versionCode < installedModule.versionCode) {
+                val installedPackage = _installedVersions.value[module.packageName]
+                if (installedPackage != null) {
+                    if (info.versionCode < installedPackage.versionCode) {
                         throw IllegalStateException("This release is older than the installed version")
                     }
                     val installedSignature = withContext(Dispatchers.IO) {

@@ -18,26 +18,40 @@ data class InstalledModule(
     val hasLauncher: Boolean,
 )
 
+/** Version data for every installed package, used to match repository modules. */
+data class InstalledPackageVersion(
+    val versionName: String?,
+    val versionCode: Long,
+)
+
+data class InstalledModulesResult(
+    val modules: List<InstalledModule>,
+    val versions: Map<String, InstalledPackageVersion>,
+)
+
 class InstalledModuleScanner(private val context: Context) {
 
-    fun scan(): List<InstalledModule> {
+    fun scan(): InstalledModulesResult {
         val pm = context.packageManager
         @Suppress("DEPRECATION")
         val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
-        val result = ArrayList<InstalledModule>()
+        val modules = ArrayList<InstalledModule>()
+        val versions = HashMap<String, InstalledPackageVersion>(packages.size)
         for (info in packages) {
-            if (info.packageName == context.packageName) continue
-            val app = info.applicationInfo ?: continue
-            val meta = app.metaData ?: continue
-            val declared = meta.getBoolean("xposedmodule", false) || meta.containsKey("xposedminversion")
-            if (!declared) continue
             val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 info.longVersionCode
             } else {
                 @Suppress("DEPRECATION")
                 info.versionCode.toLong()
             }
-            result += InstalledModule(
+            versions[info.packageName] = InstalledPackageVersion(info.versionName, versionCode)
+
+            if (info.packageName == context.packageName) continue
+            val app = info.applicationInfo ?: continue
+            val meta = app.metaData ?: continue
+            val declared = meta.getBoolean("xposedmodule", false) || meta.containsKey("xposedminversion")
+            if (!declared) continue
+            modules += InstalledModule(
                 packageName = info.packageName,
                 label = runCatching { pm.getApplicationLabel(app).toString() }.getOrDefault(info.packageName),
                 versionName = info.versionName,
@@ -48,7 +62,10 @@ class InstalledModuleScanner(private val context: Context) {
                 hasLauncher = pm.getLaunchIntentForPackage(info.packageName) != null,
             )
         }
-        return result.sortedBy { it.label.lowercase() }
+        return InstalledModulesResult(
+            modules = modules.sortedBy { it.label.lowercase() },
+            versions = versions,
+        )
     }
 
     private fun readScope(meta: Bundle): List<String> = when (val value = meta.get("xposedscope")) {

@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.ModuleUpdate
-import com.rushi.modulesmanager.data.InstalledModule
+import com.rushi.modulesmanager.data.InstalledPackageVersion
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoModule
 import com.rushi.modulesmanager.data.RepoSource
@@ -105,7 +105,7 @@ fun RepoListScreen(
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
     val updatesFirst by viewModel.updatesFirst.collectAsStateWithLifecycle()
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val installedVersions by viewModel.installedVersions.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun RepoListScreen(
     var showSourceSheet by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
 
-    val installedByPackage = remember(installed) { installed.associateBy { it.packageName } }
+    val installedByPackage = installedVersions
     val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
     val installedInRepo = remember(modules, installedByPackage) {
         modules.count { installedByPackage.containsKey(it.packageName) }
@@ -429,7 +429,7 @@ fun RepoListScreen(
 private fun ModuleCard(
     module: RepoModule,
     latest: ModuleVersion?,
-    installed: InstalledModule?,
+    installed: InstalledPackageVersion?,
     update: ModuleUpdate?,
     channel: UpdateChannel,
     onClick: () -> Unit,
