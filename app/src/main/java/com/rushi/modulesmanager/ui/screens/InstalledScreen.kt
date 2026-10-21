@@ -1,0 +1,298 @@
+package com.rushi.modulesmanager.ui.screens
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rushi.modulesmanager.AppViewModel
+import com.rushi.modulesmanager.ModuleUpdate
+import com.rushi.modulesmanager.data.InstalledModule
+import com.rushi.modulesmanager.data.RepoModule
+import com.rushi.modulesmanager.ui.components.EmptyState
+import com.rushi.modulesmanager.ui.components.InstalledAvatar
+import com.rushi.modulesmanager.ui.components.PackageLabel
+import com.rushi.modulesmanager.ui.components.StatusPill
+
+@Composable
+fun InstalledScreen(
+    viewModel: AppViewModel,
+    onOpenModule: (String) -> Unit,
+) {
+    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val updates by viewModel.updates.collectAsStateWithLifecycle()
+    val modules by viewModel.modules.collectAsStateWithLifecycle()
+    val managerInstalled by viewModel.managerInstalled.collectAsStateWithLifecycle()
+
+    var updatesOnly by rememberSaveable { mutableStateOf(false) }
+
+    val modulesByPackage = remember(modules) { modules.associateBy { it.packageName } }
+    val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
+    val visible = remember(installed, updatesByPackage, updatesOnly) {
+        installed.filter { !updatesOnly || updatesByPackage.containsKey(it.packageName) }
+            .sortedWith(
+                compareBy<InstalledModule> { if (updatesByPackage.containsKey(it.packageName)) 0 else 1 }
+                    .thenBy { it.label.lowercase() },
+            )
+    }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Installed")
+                        Text(
+                            text = buildString {
+                                append("${installed.size} Xposed module")
+                                if (installed.size != 1) append("s")
+                                if (updates.isNotEmpty()) append(" - ${updates.size} update${if (updates.size == 1) "" else "s"}")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.rescan(showMessage = true) }) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "Rescan installed modules")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item(key = "manager") {
+                ManagerCard(
+                    installed = managerInstalled,
+                    onOpen = viewModel::openManager,
+                    onGet = { viewModel.openLink(LSPOSED_RELEASES) },
+                )
+            }
+
+            item(key = "filter") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilterChip(
+                        selected = !updatesOnly,
+                        onClick = { updatesOnly = false },
+                        label = { Text("All") },
+                    )
+                    FilterChip(
+                        selected = updatesOnly,
+                        onClick = { updatesOnly = true },
+                        label = { Text(if (updates.isEmpty()) "Updates" else "Updates ${updates.size}") },
+                    )
+                }
+            }
+
+            if (visible.isEmpty()) {
+                item(key = "empty") {
+                    EmptyState(
+                        icon = Icons.Outlined.Apps,
+                        title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
+                        body = if (updatesOnly) {
+                            "All installed modules are on their latest version in this repository."
+                        } else {
+                            "Install modules from the Modules tab, then enable them in LSPosed Manager."
+                        },
+                    )
+                }
+            } else {
+                items(visible, key = { it.packageName }) { module ->
+                    InstalledCard(
+                        module = module,
+                        repoModule = modulesByPackage[module.packageName],
+                        update = updatesByPackage[module.packageName],
+                        onOpenRepository = { onOpenModule(module.packageName) },
+                        onOpenApp = { viewModel.openInstalledModule(module.packageName) },
+                        onUpdate = { update -> viewModel.installLatest(update.module) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManagerCard(
+    installed: Boolean,
+    onOpen: () -> Unit,
+    onGet: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (installed) {
+                MaterialTheme.colorScheme.surfaceContainer
+            } else {
+                MaterialTheme.colorScheme.primaryContainer
+            },
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (installed) Icons.Outlined.CheckCircle else Icons.Outlined.Info,
+                contentDescription = null,
+                tint = if (installed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (installed) "LSPosed Manager detected" else "LSPosed Manager not installed",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = if (installed) {
+                        "Enable or disable modules in the LSPosed manager."
+                    } else {
+                        "Modules Manager only handles discovery and APKs. Install LSPosed to run modules."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (installed) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                )
+            }
+            if (installed) {
+                TextButton(onClick = onOpen) { Text("Open") }
+            } else {
+                TextButton(onClick = onGet) { Text("Get") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstalledCard(
+    module: InstalledModule,
+    repoModule: RepoModule?,
+    update: ModuleUpdate?,
+    onOpenRepository: () -> Unit,
+    onOpenApp: () -> Unit,
+    onUpdate: (ModuleUpdate) -> Unit,
+) {
+    Card(
+        onClick = {
+            if (repoModule != null) onOpenRepository()
+            else if (module.hasLauncher) onOpenApp()
+        },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(modifier = Modifier.padding(14.dp)) {
+            InstalledAvatar(module, size = 52.dp)
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = module.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.size(2.dp))
+                PackageLabel(module.packageName)
+                Spacer(Modifier.size(4.dp))
+                Text(
+                    text = buildString {
+                        append("Version ${module.versionName ?: module.versionCode}")
+                        if (module.scope.isNotEmpty()) append(" - ${module.scope.size} target apps")
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when {
+                        update != null -> StatusPill(
+                            text = "Latest ${update.version.name}",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        repoModule != null -> StatusPill(
+                            text = "Up to date",
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        else -> StatusPill(text = "Not in repository")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (update != null) {
+                        FilledTonalButton(onClick = { onUpdate(update) }) {
+                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Update")
+                        }
+                    }
+                    if (module.hasLauncher) {
+                        IconButton(onClick = onOpenApp) {
+                            Icon(Icons.Outlined.PlayArrow, contentDescription = "Open module app")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val LSPOSED_RELEASES = "https://github.com/LSPosed/LSPosed/releases/latest"
