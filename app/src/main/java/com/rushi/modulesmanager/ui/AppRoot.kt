@@ -7,7 +7,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -49,6 +52,7 @@ fun AppRoot(viewModel: AppViewModel) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val download by viewModel.downloads.collectAsStateWithLifecycle()
+    val installed by viewModel.installed.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = currentRoute != null && !currentRoute.startsWith("module/")
@@ -82,7 +86,24 @@ fun AppRoot(viewModel: AppViewModel) {
                             NavigationBarItem(
                                 selected = currentRoute == destination.route,
                                 onClick = { navController.navigateTopLevel(destination.route) },
-                                icon = { Icon(destination.icon, contentDescription = null) },
+                                icon = {
+                                    if (destination == Destination.INSTALLED && installed.isNotEmpty()) {
+                                        BadgedBox(
+                                            badge = {
+                                                Badge(
+                                                    containerColor = MaterialTheme.colorScheme.primary,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                                ) {
+                                                    Text(installed.size.toString())
+                                                }
+                                            },
+                                        ) {
+                                            Icon(destination.icon, contentDescription = null)
+                                        }
+                                    } else {
+                                        Icon(destination.icon, contentDescription = null)
+                                    }
+                                },
                                 label = { Text(destination.label) },
                             )
                         }

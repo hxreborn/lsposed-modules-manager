@@ -1,5 +1,6 @@
 package com.rushi.modulesmanager.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -31,7 +33,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,6 +69,7 @@ import com.rushi.modulesmanager.data.formatDate
 import com.rushi.modulesmanager.data.formatRelativeDate
 import com.rushi.modulesmanager.data.parseInstant
 import com.rushi.modulesmanager.ui.components.AddRepositoryDialog
+import com.rushi.modulesmanager.ui.components.CountedFilterChip
 import com.rushi.modulesmanager.ui.components.EmptyState
 import com.rushi.modulesmanager.ui.components.ErrorBanner
 import com.rushi.modulesmanager.ui.components.LoadingState
@@ -110,6 +112,9 @@ fun RepoListScreen(
 
     val installedByPackage = remember(installed) { installed.associateBy { it.packageName } }
     val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
+    val installedInRepo = remember(modules, installedByPackage) {
+        modules.count { installedByPackage.containsKey(it.packageName) }
+    }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     val filtered = remember(modules, query, filter, installedByPackage, updatesByPackage, sortMode, updatesFirst, channel) {
@@ -272,23 +277,27 @@ fun RepoListScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(
+                CountedFilterChip(
                     selected = filter == RepoFilter.ALL,
                     onClick = { filter = RepoFilter.ALL },
-                    label = { Text("All") },
+                    label = "All",
+                    count = modules.size,
                 )
-                FilterChip(
+                CountedFilterChip(
                     selected = filter == RepoFilter.UPDATES,
                     onClick = { filter = RepoFilter.UPDATES },
-                    label = { Text(if (updates.isEmpty()) "Updates" else "Updates ${updates.size}") },
+                    label = "Updates",
+                    count = updates.size,
                 )
-                FilterChip(
+                CountedFilterChip(
                     selected = filter == RepoFilter.INSTALLED,
                     onClick = { filter = RepoFilter.INSTALLED },
-                    label = { Text("Installed") },
+                    label = "Installed",
+                    count = installedInRepo,
                 )
             }
 

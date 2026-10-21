@@ -22,7 +22,6 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +44,7 @@ import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.ModuleUpdate
 import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.RepoModule
+import com.rushi.modulesmanager.ui.components.CountedFilterChip
 import com.rushi.modulesmanager.ui.components.EmptyState
 import com.rushi.modulesmanager.ui.components.InstalledAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
@@ -113,15 +113,17 @@ fun InstalledScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilterChip(
+                    CountedFilterChip(
                         selected = !updatesOnly,
                         onClick = { updatesOnly = false },
-                        label = { Text("All") },
+                        label = "All",
+                        count = installed.size,
                     )
-                    FilterChip(
+                    CountedFilterChip(
                         selected = updatesOnly,
                         onClick = { updatesOnly = true },
-                        label = { Text(if (updates.isEmpty()) "Updates" else "Updates ${updates.size}") },
+                        label = "Updates",
+                        count = updates.size,
                     )
                 }
             }
