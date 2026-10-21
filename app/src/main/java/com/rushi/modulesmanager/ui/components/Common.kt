@@ -93,29 +93,38 @@ fun ModuleAvatar(module: RepoModule, size: Dp = 52.dp) {
 @Composable
 fun InstalledAvatar(module: InstalledModule, size: Dp = 52.dp) {
     val shape = RoundedCornerShape(size * 0.32f)
+    val iconBitmap = remember(module.packageName) {
+        module.icon?.toBitmap(width = 96, height = 96)?.asImageBitmap()
+    }
     Box(
         modifier = Modifier
             .size(size)
             .clip(shape)
-            .background(avatarPalette[Math.floorMod(module.packageName.hashCode(), avatarPalette.size)]),
+            .then(
+                if (iconBitmap == null) {
+                    Modifier.background(
+                        avatarPalette[Math.floorMod(module.packageName.hashCode(), avatarPalette.size)],
+                    )
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        val initial = module.label.trim().firstOrNull()?.uppercaseChar() ?: '?'
-        Text(
-            text = initial.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White,
-        )
-        val iconBitmap = remember(module.packageName) {
-            module.icon?.toBitmap(width = 96, height = 96)?.asImageBitmap()
-        }
         if (iconBitmap != null) {
             Image(
                 bitmap = iconBitmap,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
+            )
+        } else {
+            val initial = module.label.trim().firstOrNull()?.uppercaseChar() ?: '?'
+            Text(
+                text = initial.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
             )
         }
     }
