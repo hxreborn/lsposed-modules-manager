@@ -8,14 +8,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -33,6 +37,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,9 +51,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -77,6 +84,8 @@ import com.rushi.modulesmanager.ui.components.ModuleAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.RepositoryPicker
 import com.rushi.modulesmanager.ui.components.StatusPill
+import com.rushi.modulesmanager.ui.components.VerticalScrollbar
+import kotlinx.coroutines.launch
 import java.time.Instant
 
 private enum class RepoFilter(val label: String) {
@@ -116,6 +125,8 @@ fun RepoListScreen(
         modules.count { installedByPackage.containsKey(it.packageName) }
     }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val filtered = remember(modules, query, filter, installedByPackage, updatesByPackage, sortMode, updatesFirst, channel) {
         val needle = query.trim().lowercase()
@@ -305,50 +316,79 @@ fun RepoListScreen(
                 ErrorBanner(message = message, onRetry = viewModel::refresh)
             }
 
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = viewModel::refresh,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
             ) {
-                when {
-                    loading && modules.isEmpty() -> LoadingState("Loading modules...")
-                    filtered.isEmpty() -> {
-                        if (modules.isEmpty()) {
-                            EmptyState(
-                                icon = Icons.Outlined.ErrorOutline,
-                                title = "Repository unavailable",
-                                body = error ?: "No modules were found at ${source.name}.",
-                                actionLabel = "Choose repository",
-                                onAction = { showSourceSheet = true },
-                            )
-                        } else {
-                            EmptyState(
-                                icon = Icons.Outlined.Extension,
-                                title = "Nothing here",
-                                body = when (filter) {
-                                    RepoFilter.UPDATES -> "Every installed module is up to date."
-                                    RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
-                                    RepoFilter.ALL -> "No module matches \"$query\"."
-                                },
-                            )
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    when {
+                        loading && modules.isEmpty() -> LoadingState("Loading modules...")
+                        filtered.isEmpty() -> {
+                            if (modules.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Outlined.ErrorOutline,
+                                    title = "Repository unavailable",
+                                    body = error ?: "No modules were found at ${source.name}.",
+                                    actionLabel = "Choose repository",
+                                    onAction = { showSourceSheet = true },
+                                )
+                            } else {
+                                EmptyState(
+                                    icon = Icons.Outlined.Extension,
+                                    title = "Nothing here",
+                                    body = when (filter) {
+                                        RepoFilter.UPDATES -> "Every installed module is up to date."
+                                        RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
+                                        RepoFilter.ALL -> "No module matches \"$query\"."
+                                    },
+                                )
+                            }
+                        }
+                        else -> LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(filtered, key = { it.packageName }) { module ->
+                                ModuleCard(
+                                    module = module,
+                                    latest = module.latest(channel),
+                                    installed = installedByPackage[module.packageName],
+                                    update = updatesByPackage[module.packageName],
+                                    channel = channel,
+                                    onClick = { onOpenModule(module.packageName) },
+                                )
+                            }
                         }
                     }
-                    else -> LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                }
+
+                VerticalScrollbar(
+                    state = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .padding(top = 8.dp, bottom = 80.dp),
+                )
+
+                val showScrollToTop by remember {
+                    derivedStateOf { listState.firstVisibleItemIndex > 0 }
+                }
+                if (showScrollToTop) {
+                    FloatingActionButton(
+                        onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ) {
-                        items(filtered, key = { it.packageName }) { module ->
-                            ModuleCard(
-                                module = module,
-                                latest = module.latest(channel),
-                                installed = installedByPackage[module.packageName],
-                                update = updatesByPackage[module.packageName],
-                                channel = channel,
-                                onClick = { onOpenModule(module.packageName) },
-                            )
-                        }
+                        Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Scroll to top")
                     }
                 }
             }

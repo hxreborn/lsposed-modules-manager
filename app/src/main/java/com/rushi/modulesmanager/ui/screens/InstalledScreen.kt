@@ -1,11 +1,13 @@
 package com.rushi.modulesmanager.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,14 +15,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,9 +34,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +55,8 @@ import com.rushi.modulesmanager.ui.components.EmptyState
 import com.rushi.modulesmanager.ui.components.InstalledAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.StatusPill
+import com.rushi.modulesmanager.ui.components.VerticalScrollbar
+import kotlinx.coroutines.launch
 
 @Composable
 fun InstalledScreen(
@@ -59,6 +68,8 @@ fun InstalledScreen(
     val modules by viewModel.modules.collectAsStateWithLifecycle()
 
     var updatesOnly by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     val modulesByPackage = remember(modules) { modules.associateBy { it.packageName } }
     val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
@@ -86,56 +97,86 @@ fun InstalledScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(key = "filter") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CountedFilterChip(
-                        selected = !updatesOnly,
-                        onClick = { updatesOnly = false },
-                        label = "All",
-                        count = installed.size,
-                    )
-                    CountedFilterChip(
-                        selected = updatesOnly,
-                        onClick = { updatesOnly = true },
-                        label = "Updates",
-                        count = updates.size,
-                    )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item(key = "filter") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CountedFilterChip(
+                            selected = !updatesOnly,
+                            onClick = { updatesOnly = false },
+                            label = "All",
+                            count = installed.size,
+                        )
+                        CountedFilterChip(
+                            selected = updatesOnly,
+                            onClick = { updatesOnly = true },
+                            label = "Updates",
+                            count = updates.size,
+                        )
+                    }
+                }
+    
+                if (visible.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(
+                            icon = Icons.Outlined.Apps,
+                            title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
+                            body = if (updatesOnly) {
+                                "All installed modules are on their latest version in this repository."
+                            } else {
+                                "Install modules from the Modules tab, then enable them in LSPosed."
+                            },
+                        )
+                    }
+                } else {
+                    items(visible, key = { it.packageName }) { module ->
+                        InstalledCard(
+                            module = module,
+                            repoModule = modulesByPackage[module.packageName],
+                            update = updatesByPackage[module.packageName],
+                            onOpenRepository = { onOpenModule(module.packageName) },
+                            onOpenApp = { viewModel.openInstalledModule(module.packageName) },
+                            onUpdate = { update -> viewModel.installLatest(update.module) },
+                        )
+                    }
                 }
             }
+            VerticalScrollbar(
+                state = listState,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .padding(top = 8.dp, bottom = 80.dp),
+            )
 
-            if (visible.isEmpty()) {
-                item(key = "empty") {
-                    EmptyState(
-                        icon = Icons.Outlined.Apps,
-                        title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
-                        body = if (updatesOnly) {
-                            "All installed modules are on their latest version in this repository."
-                        } else {
-                            "Install modules from the Modules tab, then enable them in LSPosed."
-                        },
-                    )
-                }
-            } else {
-                items(visible, key = { it.packageName }) { module ->
-                    InstalledCard(
-                        module = module,
-                        repoModule = modulesByPackage[module.packageName],
-                        update = updatesByPackage[module.packageName],
-                        onOpenRepository = { onOpenModule(module.packageName) },
-                        onOpenApp = { viewModel.openInstalledModule(module.packageName) },
-                        onUpdate = { update -> viewModel.installLatest(update.module) },
-                    )
+            val showScrollToTop by remember {
+                derivedStateOf { listState.firstVisibleItemIndex > 0 }
+            }
+            if (showScrollToTop) {
+                FloatingActionButton(
+                    onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Scroll to top")
                 }
             }
         }
