@@ -79,7 +79,7 @@ fun VerticalScrollbar(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(y = with(density) { (maxOffsetPx * progress).toDp() })
-                .width(5.dp)
+                .width(8.dp)
                 .height(with(density) { thumbHeightPx.toDp() })
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)),
