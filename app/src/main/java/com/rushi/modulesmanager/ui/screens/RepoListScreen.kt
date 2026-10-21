@@ -159,12 +159,6 @@ fun RepoListScreen(
         )
     }
 
-    val subtitle = when {
-        loading -> "Loading repository..."
-        updates.isNotEmpty() -> "${updates.size} update${if (updates.size == 1) "" else "s"} available"
-        else -> "${modules.size} modules"
-    }
-
     LaunchedEffect(addSourceState.added) {
         if (addSourceState.added != null) {
             showAddDialog = false
@@ -177,16 +171,7 @@ fun RepoListScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = {
-                    Column {
-                        Text("Modules")
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+                title = { Text("Modules") },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
