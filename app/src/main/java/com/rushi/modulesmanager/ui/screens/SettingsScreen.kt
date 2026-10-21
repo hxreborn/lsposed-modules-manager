@@ -55,7 +55,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val source by viewModel.source.collectAsStateWithLifecycle()
     val sources by viewModel.sources.collectAsStateWithLifecycle()
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val installed by viewModel.repoInstalled.collectAsStateWithLifecycle()
     val addSourceState by viewModel.addSourceState.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
@@ -115,7 +115,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
             SettingsRow(
                 icon = Icons.Outlined.Apps,
                 title = "Installed modules",
-                subtitle = "${installed.size} Xposed modules detected - tap to rescan",
+                subtitle = "${installed.size} installed repository modules - tap to rescan",
                 onClick = { viewModel.rescan(showMessage = true) },
             )
 

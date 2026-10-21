@@ -27,8 +27,9 @@ enabling it still happens in LSPosed.
   expected package, is not older than the installed version, and is signed with the same key
   before handing it to the system installer.
 - Channel selection: stable, beta and snapshot releases.
-- Installed screen detects Xposed modules through their package metadata and shows which have
-  updates, with a shortcut to each module's own settings screen.
+- Installed screen lists modules from the selected repository that are installed, including
+  packages that do not declare Xposed metadata, and shows which have updates. Its count matches
+  the Installed filter on the Modules screen.
 - Material 3 UI with dynamic color, dark mode and a generated monogram/GitHub avatar per module.
 
 ## Repository format
@@ -108,3 +109,5 @@ app/src/main/java/com/rushi/modulesmanager/
   with a different key than the installed app are rejected before the installer opens.
 - Modules Manager does not check module safety beyond package identity and signing keys. Treat
   modules from third-party repositories like any other sideloaded APK.
+- The Installed tab is scoped to the selected repository. Modules installed from other sources
+  are not listed there, which keeps its count aligned with the repository filters.

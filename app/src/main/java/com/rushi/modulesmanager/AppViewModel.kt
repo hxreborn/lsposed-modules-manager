@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -78,8 +79,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         list.firstOrNull { it.id == id } ?: list.first()
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DefaultSources.official)
 
-    private val _installed = MutableStateFlow<List<InstalledModule>>(emptyList())
-    val installed: StateFlow<List<InstalledModule>> = _installed.asStateFlow()
+    private val _repoInstalled = MutableStateFlow<List<InstalledModule>>(emptyList())
+    val repoInstalled: StateFlow<List<InstalledModule>> = _repoInstalled.asStateFlow()
 
     private val _installedVersions = MutableStateFlow<Map<String, InstalledPackageVersion>>(emptyMap())
     val installedVersions: StateFlow<Map<String, InstalledPackageVersion>> = _installedVersions.asStateFlow()
@@ -101,8 +102,11 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     private var detailJob: Job? = null
     private var downloadJob: Job? = null
+    private var installedRebuildJob: Job? = null
+    private var detectedModules: List<InstalledModule> = emptyList()
+    private var installedVersionMap: Map<String, InstalledPackageVersion> = emptyMap()
 
-    val updates: StateFlow<List<ModuleUpdate>> = combine(modules, installed, channel) { repoModules, installedModules, selectedChannel ->
+    val updates: StateFlow<List<ModuleUpdate>> = combine(modules, repoInstalled, channel) { repoModules, installedModules, selectedChannel ->
         val byPackage = repoModules.associateBy { it.packageName }
         installedModules.mapNotNull { installedModule ->
             val module = byPackage[installedModule.packageName] ?: return@mapNotNull null
@@ -122,14 +126,44 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 loadMutex.withLock { container.repo.load(repoSource) }
             }
         }
+        viewModelScope.launch {
+            modules.map { list -> list.map { it.packageName } }
+                .distinctUntilChanged()
+                .collectLatest { rebuildRepoInstalled() }
+        }
     }
 
     fun rescan(showMessage: Boolean = false) {
         viewModelScope.launch {
             val scanned = withContext(Dispatchers.IO) { container.scanner.scan() }
-            _installed.value = scanned.modules
+            detectedModules = scanned.modules
+            installedVersionMap = scanned.versions
             _installedVersions.value = scanned.versions
-            if (showMessage) message("Found ${scanned.modules.size} installed modules")
+            rebuildRepoInstalled()
+            if (showMessage) message("Rescanned installed modules")
+        }
+    }
+
+    /** Combines Xposed-detected modules with repository packages installed without metadata. */
+    private fun rebuildRepoInstalled() {
+        installedRebuildJob?.cancel()
+        val repoPackages = modules.value.map { it.packageName }
+        val versions = installedVersionMap
+        if (repoPackages.isEmpty() || versions.isEmpty()) {
+            _repoInstalled.value = emptyList()
+            return
+        }
+        val detected = detectedModules.associateBy { it.packageName }
+        installedRebuildJob = viewModelScope.launch {
+            val full = withContext(Dispatchers.IO) {
+                repoPackages.asSequence()
+                    .filter { versions.containsKey(it) }
+                    .mapNotNull { detected[it] ?: container.scanner.installedModule(it) }
+                    .distinctBy { it.packageName }
+                    .sortedBy { it.label.lowercase() }
+                    .toList()
+            }
+            _repoInstalled.value = full
         }
     }
 
@@ -210,9 +244,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun latestVersion(module: RepoModule): ModuleVersion? = module.latest(channel.value)
-
-    fun installedModule(packageName: String): InstalledModule? =
-        _installed.value.firstOrNull { it.packageName == packageName }
 
     fun moduleFor(packageName: String): RepoModule? = container.repo.cachedModule(packageName)
 

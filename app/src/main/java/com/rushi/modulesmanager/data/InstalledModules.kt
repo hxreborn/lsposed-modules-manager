@@ -2,6 +2,7 @@ package com.rushi.modulesmanager.data
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -30,9 +31,9 @@ data class InstalledModulesResult(
 )
 
 class InstalledModuleScanner(private val context: Context) {
+    private val pm get() = context.packageManager
 
     fun scan(): InstalledModulesResult {
-        val pm = context.packageManager
         @Suppress("DEPRECATION")
         val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
         val modules = ArrayList<InstalledModule>()
@@ -47,24 +48,45 @@ class InstalledModuleScanner(private val context: Context) {
             versions[info.packageName] = InstalledPackageVersion(info.versionName, versionCode)
 
             if (info.packageName == context.packageName) continue
-            val app = info.applicationInfo ?: continue
-            val meta = app.metaData ?: continue
+            val meta = info.applicationInfo?.metaData ?: continue
             val declared = meta.getBoolean("xposedmodule", false) || meta.containsKey("xposedminversion")
             if (!declared) continue
-            modules += InstalledModule(
-                packageName = info.packageName,
-                label = runCatching { pm.getApplicationLabel(app).toString() }.getOrDefault(info.packageName),
-                versionName = info.versionName,
-                versionCode = versionCode,
-                description = meta.getString("xposeddescription"),
-                scope = readScope(meta),
-                icon = runCatching { app.loadIcon(pm) }.getOrNull(),
-                hasLauncher = pm.getLaunchIntentForPackage(info.packageName) != null,
-            )
+            modules += toInstalledModule(info)
         }
         return InstalledModulesResult(
             modules = modules.sortedBy { it.label.lowercase() },
             versions = versions,
+        )
+    }
+
+    /** Basic app data for any installed package, including modules without Xposed metadata. */
+    fun installedModule(packageName: String): InstalledModule? = try {
+        @Suppress("DEPRECATION")
+        val info = pm.getPackageInfo(packageName, PackageManager.GET_META_DATA)
+        toInstalledModule(info)
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
+    }
+
+    private fun toInstalledModule(info: PackageInfo): InstalledModule {
+        val app = info.applicationInfo
+        val meta = app?.metaData
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return InstalledModule(
+            packageName = info.packageName,
+            label = app?.let { runCatching { pm.getApplicationLabel(it).toString() }.getOrNull() }
+                ?: info.packageName,
+            versionName = info.versionName,
+            versionCode = versionCode,
+            description = meta?.getString("xposeddescription"),
+            scope = meta?.let { readScope(it) }.orEmpty(),
+            icon = app?.let { runCatching { it.loadIcon(pm) }.getOrNull() },
+            hasLauncher = pm.getLaunchIntentForPackage(info.packageName) != null,
         )
     }
 

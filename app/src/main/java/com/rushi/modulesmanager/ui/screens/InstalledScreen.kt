@@ -65,7 +65,7 @@ fun InstalledScreen(
     viewModel: AppViewModel,
     onOpenModule: (String) -> Unit,
 ) {
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val installed by viewModel.repoInstalled.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
     val modules by viewModel.modules.collectAsStateWithLifecycle()
 
@@ -143,7 +143,7 @@ fun InstalledScreen(
                         item(key = "empty") {
                             EmptyState(
                                 icon = Icons.Outlined.Apps,
-                                title = if (updatesOnly) "Nothing to update" else "No Xposed modules found",
+                                title = if (updatesOnly) "Nothing to update" else "No installed modules found",
                                 body = if (updatesOnly) {
                                     "All installed modules are on their latest version in this repository."
                                 } else {

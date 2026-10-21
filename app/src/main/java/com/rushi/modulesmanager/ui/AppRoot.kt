@@ -52,7 +52,7 @@ fun AppRoot(viewModel: AppViewModel) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val download by viewModel.downloads.collectAsStateWithLifecycle()
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val installed by viewModel.repoInstalled.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = currentRoute != null && !currentRoute.startsWith("module/")
