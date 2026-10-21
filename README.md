@@ -19,7 +19,8 @@ enabling it still happens in LSPosed.
   and module pages.
 - Custom repositories: any base URL serving the modern paginated API, or the older single
   `modules.json` document, for mirrors or self-hosted module collections.
-- Search, sort by name or last update, filter to updates or installed modules.
+- Search, sort by name or last update, and filter to updates, installed, or not installed
+  modules.
 - Update badges for installed modules, matched by package name and version code.
 - Module page with rendered README, release history, download counts and per-APK install buttons.
 - Downloads in the background with a progress banner, then verifies that the APK is for the

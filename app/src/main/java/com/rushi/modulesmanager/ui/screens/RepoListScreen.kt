@@ -1,9 +1,10 @@
 package com.rushi.modulesmanager.ui.screens
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -92,8 +92,10 @@ private enum class RepoFilter(val label: String) {
     ALL("All"),
     UPDATES("Updates"),
     INSTALLED("Installed"),
+    NOT_INSTALLED("Not installed"),
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RepoListScreen(
     viewModel: AppViewModel,
@@ -124,6 +126,7 @@ fun RepoListScreen(
     val installedInRepo = remember(modules, installedByPackage) {
         modules.count { installedByPackage.containsKey(it.packageName) }
     }
+    val notInstalledInRepo = modules.size - installedInRepo
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -135,6 +138,7 @@ fun RepoListScreen(
                 RepoFilter.ALL -> true
                 RepoFilter.UPDATES -> updatesByPackage.containsKey(module.packageName)
                 RepoFilter.INSTALLED -> installedByPackage.containsKey(module.packageName)
+                RepoFilter.NOT_INSTALLED -> !installedByPackage.containsKey(module.packageName)
             }
             if (!matchesFilter) return@filter false
             needle.isEmpty() ||
@@ -285,12 +289,12 @@ fun RepoListScreen(
                 shape = RoundedCornerShape(28.dp),
             )
 
-            Row(
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 CountedFilterChip(
                     selected = filter == RepoFilter.ALL,
@@ -309,6 +313,12 @@ fun RepoListScreen(
                     onClick = { filter = RepoFilter.INSTALLED },
                     label = "Installed",
                     count = installedInRepo,
+                )
+                CountedFilterChip(
+                    selected = filter == RepoFilter.NOT_INSTALLED,
+                    onClick = { filter = RepoFilter.NOT_INSTALLED },
+                    label = "Not installed",
+                    count = notInstalledInRepo,
                 )
             }
 
@@ -342,9 +352,10 @@ fun RepoListScreen(
                                     icon = Icons.Outlined.Extension,
                                     title = "Nothing here",
                                     body = when (filter) {
-                                        RepoFilter.UPDATES -> "Every installed module is up to date."
-                                        RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
-                                        RepoFilter.ALL -> "No module matches \"$query\"."
+                                    RepoFilter.UPDATES -> "Every installed module is up to date."
+                                    RepoFilter.INSTALLED -> "None of your installed modules are in this repository."
+                                    RepoFilter.NOT_INSTALLED -> "Every module in this repository is installed."
+                                    RepoFilter.ALL -> "No module matches \"$query\"."
                                     },
                                 )
                             }
