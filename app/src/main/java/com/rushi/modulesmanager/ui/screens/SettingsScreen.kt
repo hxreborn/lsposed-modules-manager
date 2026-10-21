@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Extension
@@ -55,7 +54,6 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val source by viewModel.source.collectAsStateWithLifecycle()
     val sources by viewModel.sources.collectAsStateWithLifecycle()
-    val installed by viewModel.repoInstalled.collectAsStateWithLifecycle()
     val addSourceState by viewModel.addSourceState.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
@@ -108,15 +106,6 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 title = "Check for updates",
                 subtitle = "Refresh the repository and rescan installed modules",
                 onClick = viewModel::refresh,
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SectionTitle("Modules")
-            SettingsRow(
-                icon = Icons.Outlined.Apps,
-                title = "Installed modules",
-                subtitle = "${installed.size} installed repository modules - tap to rescan",
-                onClick = { viewModel.rescan(showMessage = true) },
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
