@@ -2,17 +2,26 @@ package com.rushi.modulesmanager.data
 
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
+enum class RepoFormat {
+    /** The current paginated API: /module-list/{page}.json and /module/{package}.json. */
+    MODERN,
+
+    /** Detect between the paginated API and the older single modules.json document. */
+    AUTO,
+}
+
 data class RepoSource(
     val id: String,
     val name: String,
     val bases: List<String>,
     val custom: Boolean = false,
+    val format: RepoFormat = RepoFormat.AUTO,
 )
 
 object DefaultSources {
     /**
-     * The same repository the LSPosed manager uses, with its documented fallbacks.
-     * They all serve the same modules.json, so the cache is shared per source.
+     * The same repository the LSPosed manager uses, with its documented fallbacks. Only the
+     * first host currently serves the paginated API, so the others are failover targets only.
      */
     val official = RepoSource(
         id = "official",
@@ -20,7 +29,9 @@ object DefaultSources {
         bases = listOf(
             "https://modules.lsposed.org/",
             "https://modules-blogcdn.lsposed.org/",
+            "https://modules-cloudflare.lsposed.org/",
         ),
+        format = RepoFormat.MODERN,
     )
 }
 

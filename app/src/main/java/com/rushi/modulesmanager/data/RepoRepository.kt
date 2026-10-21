@@ -49,7 +49,7 @@ class RepoRepository(
         _loading.value = _modules.value.isEmpty()
         _refreshing.value = true
         try {
-            val fetched = api.fetchModules(source.bases)
+            val fetched = api.fetchModules(source)
             coroutineContext.ensureActive()
             if (activeSourceId != source.id) return
             _modules.value = fetched.modules.filterNot { it.hide }
@@ -82,7 +82,7 @@ class RepoRepository(
     suspend fun loadModule(source: RepoSource, packageName: String): RepoModule? {
         details[packageName]?.let { return it }
         return try {
-            val module = api.fetchModule(source.bases, packageName)
+            val module = api.fetchModule(source, packageName)
             coroutineContext.ensureActive()
             details[packageName] = module
             _modules.value = _modules.value.map { if (it.packageName == packageName) module else it }

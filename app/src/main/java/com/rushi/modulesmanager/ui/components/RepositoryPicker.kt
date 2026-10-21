@@ -57,8 +57,8 @@ fun RepositoryPicker(
         Text("Repository", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Modules are read from a modules.json endpoint, using the same format as the LSPosed repository. " +
-                "If the official source cannot be reached, add a mirror that serves the same format.",
+            text = "Modules are read from the same endpoint the LSPosed repository uses. Hosts are tried " +
+                "automatically when one fails, and older modules.json repositories are detected too.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -74,8 +74,17 @@ fun RepositoryPicker(
                 RadioButton(selected = item.id == selected.id, onClick = { onSelect(item.id) })
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.name, style = MaterialTheme.typography.bodyLarge)
+                    val endpointLabel = if (item.bases.size > 1) {
+                        val primary = item.bases.first()
+                            .removePrefix("https://")
+                            .removePrefix("http://")
+                            .trimEnd('/')
+                        "$primary +${item.bases.size - 1} backups"
+                    } else {
+                        item.bases.first()
+                    }
                     Text(
-                        text = item.bases.first(),
+                        text = endpointLabel,
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

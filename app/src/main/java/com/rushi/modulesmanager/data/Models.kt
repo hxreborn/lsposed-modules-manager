@@ -33,6 +33,8 @@ data class RepoAsset(
     val downloadUrl: String,
     val downloadCount: Int,
     val size: Long,
+    /** GitHub URL used when the signed assets.lsposed.org URL stops working. */
+    val originalDownloadUrl: String? = null,
 )
 
 data class RepoRelease(
@@ -145,8 +147,9 @@ data class ModuleVersion(val code: Long, val name: String) {
 }
 
 object RepoJson {
-    fun parseModules(json: String): List<RepoModule> {
-        val array = JSONArray(json)
+    fun parseModules(json: String): List<RepoModule> = parseModules(JSONArray(json))
+
+    fun parseModules(array: JSONArray): List<RepoModule> {
         val modules = ArrayList<RepoModule>(array.length())
         for (index in 0 until array.length()) {
             val obj = array.optJSONObject(index) ?: continue
@@ -204,6 +207,8 @@ object RepoJson {
                                     downloadUrl = url,
                                     downloadCount = asset.optInt("downloadCount", 0),
                                     size = asset.optLong("size", 0L),
+                                    originalDownloadUrl = asset.optString("originalDownloadUrl")
+                                        .takeIf { it.isNotBlank() && it != "null" },
                                 ),
                             )
                         }

@@ -20,6 +20,7 @@ import com.rushi.modulesmanager.data.RepoSource
 import com.rushi.modulesmanager.data.SortMode
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.data.normalizeRepoBase
+import com.rushi.modulesmanager.data.sourceFromBase
 import com.rushi.modulesmanager.data.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -164,7 +165,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _addSource.value = AddSourceState(inProgress = true)
             try {
-                container.api.fetchModules(listOf(base))
+                container.api.fetchModules(sourceFromBase(base))
                 val added = settings.addCustomSource(base) ?: error("Could not add this repository")
                 settings.setSourceId(added.id)
                 _addSource.value = AddSourceState(added = added)
@@ -244,7 +245,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                         phase = DownloadCenter.Phase.DOWNLOADING,
                     ),
                 )
-                val file = container.api.download(asset.downloadUrl, destination) { done, total ->
+                val file = container.api.download(
+                    urls = listOfNotNull(asset.downloadUrl, asset.originalDownloadUrl),
+                    destination = destination,
+                ) { done, total ->
                     container.downloads.progress(done, total)
                 }
                 container.downloads.phase(DownloadCenter.Phase.VERIFYING)
