@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -75,20 +74,7 @@ fun InstalledScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Installed")
-                        Text(
-                            text = buildString {
-                                append("${installed.size} Xposed module")
-                                if (installed.size != 1) append("s")
-                                if (updates.isNotEmpty()) append(" - ${updates.size} update${if (updates.size == 1) "" else "s"}")
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+                title = { Text("Installed") },
                 actions = {
                     IconButton(onClick = { viewModel.rescan(showMessage = true) }) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "Rescan installed modules")
@@ -167,8 +153,8 @@ private fun InstalledCard(
 ) {
     Card(
         onClick = {
-            if (repoModule != null) onOpenRepository()
-            else if (module.hasLauncher) onOpenApp()
+            if (module.hasLauncher) onOpenApp()
+            else if (repoModule != null) onOpenRepository()
         },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -216,11 +202,6 @@ private fun InstalledCard(
                             Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Update")
-                        }
-                    }
-                    if (module.hasLauncher) {
-                        IconButton(onClick = onOpenApp) {
-                            Icon(Icons.Outlined.PlayArrow, contentDescription = "Open module app")
                         }
                     }
                 }

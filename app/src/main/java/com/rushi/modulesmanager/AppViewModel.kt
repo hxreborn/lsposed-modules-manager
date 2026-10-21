@@ -314,12 +314,6 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         container.downloads.update(null)
     }
 
-    fun openManager() {
-        if (!container.scanner.openManager()) {
-            message("Could not open LSPosed")
-        }
-    }
-
     fun openInstalledModule(packageName: String) {
         if (!container.scanner.openModule(packageName)) {
             message("This module has no settings screen")

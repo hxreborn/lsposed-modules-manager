@@ -58,19 +58,11 @@ class InstalledModuleScanner(private val context: Context) {
         else -> emptyList()
     }
 
-    fun openManager(): Boolean {
-        val intent = context.packageManager.getLaunchIntentForPackage(MANAGER_PACKAGE) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return runCatching { context.startActivity(intent) }.isSuccess
-    }
-
     fun openModule(packageName: String): Boolean {
         val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return runCatching { context.startActivity(intent) }.isSuccess
     }
 
-    companion object {
-        private const val MANAGER_PACKAGE = "org.lsposed.manager"
-    }
+
 }

@@ -72,16 +72,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Settings")
-                        Text(
-                            text = "Updates, repositories and about",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+                title = { Text("Settings") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -138,13 +129,6 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 onClick = { viewModel.openLink("https://github.com/LSPosed/LSPosed") },
             )
 
-            Text(
-                text = "Modules Manager is a repository client. It discovers and installs Xposed modules, " +
-                    "but does not hook apps itself. Enabling a module is done in LSPosed.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
         }
     }
 

@@ -29,12 +29,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Button
@@ -49,7 +47,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
@@ -154,26 +151,6 @@ fun ModuleDetailScreen(
                             Icon(Icons.Outlined.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            module?.homepageUrl?.let { url ->
-                                DropdownMenuItem(
-                                    text = { Text("Open homepage") },
-                                    leadingIcon = { Icon(Icons.Outlined.Language, null) },
-                                    onClick = {
-                                        viewModel.openLink(url)
-                                        showMenu = false
-                                    },
-                                )
-                            }
-                            module?.sourceUrl?.let { url ->
-                                DropdownMenuItem(
-                                    text = { Text("Open source code") },
-                                    leadingIcon = { Icon(Icons.Outlined.Code, null) },
-                                    onClick = {
-                                        viewModel.openLink(url)
-                                        showMenu = false
-                                    },
-                                )
-                            }
                             module?.url?.let { url ->
                                 DropdownMenuItem(
                                     text = { Text("Open release page") },
@@ -236,7 +213,6 @@ fun ModuleDetailScreen(
                     }
                 },
                 onOpenModule = { viewModel.openInstalledModule(packageName) },
-                onOpenLsposed = viewModel::openManager,
             )
 
             PrimaryTabRow(selectedTabIndex = tab) {
@@ -321,7 +297,6 @@ private fun DetailHeader(
     primaryAsset: RepoAsset?,
     onInstall: () -> Unit,
     onOpenModule: () -> Unit,
-    onOpenLsposed: () -> Unit,
 ) {
     val updateVersion = update?.version
     val hasUpdate = updateVersion != null
@@ -365,15 +340,6 @@ private fun DetailHeader(
             }
         }
 
-        module.summary?.takeIf { it.isNotBlank() }?.let { summary ->
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
         val latestDate = formatDate(module.latestTime(channel))
         if (latest != null) {
             Spacer(Modifier.height(8.dp))
@@ -385,41 +351,39 @@ private fun DetailHeader(
         }
 
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val primaryLabel = when {
-                hasUpdate -> "Update to ${updateVersion.name}"
-                installed != null && installed.hasLauncher -> "Open"
-                installed != null -> "Open in LSPosed"
-                primaryAsset != null && latest != null -> "Install ${latest.name}"
-                primaryAsset != null -> "Install"
-                else -> "No APK available"
-            }
-            Button(
-                onClick = {
-                    when {
-                        hasUpdate || installed == null -> onInstall()
-                        installed.hasLauncher -> onOpenModule()
-                        else -> onOpenLsposed()
-                    }
+        val primaryLabel = when {
+            hasUpdate -> "Update"
+            installed != null && installed.hasLauncher -> "Open"
+            installed != null -> "Installed"
+            else -> "Install"
+        }
+        val primaryEnabled = when {
+            hasUpdate -> primaryAsset != null
+            installed != null -> installed.hasLauncher
+            else -> primaryAsset != null
+        }
+        Button(
+            onClick = {
+                when {
+                    hasUpdate || installed == null -> onInstall()
+                    installed.hasLauncher -> onOpenModule()
+                    else -> Unit
+                }
+            },
+            enabled = primaryEnabled,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = if (installed != null && !hasUpdate) {
+                    Icons.Outlined.PlayArrow
+                } else {
+                    Icons.Outlined.Download
                 },
-                enabled = hasUpdate || installed != null || primaryAsset != null,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    imageVector = if (installed != null && !hasUpdate) {
-                        Icons.Outlined.PlayArrow
-                    } else {
-                        Icons.Outlined.Download
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(primaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            OutlinedButton(onClick = onOpenLsposed) {
-                Text("LSPosed", maxLines = 1)
-            }
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(primaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -678,8 +642,6 @@ private fun InformationTab(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         InfoRow("Repository", sourceName)
-        module.homepageUrl?.let { InfoRow("Homepage", it, onClick = { onOpenLink(it) }) }
-        module.sourceUrl?.let { InfoRow("Source code", it, onClick = { onOpenLink(it) }) }
         module.url?.let { InfoRow("Releases", it, onClick = { onOpenLink(it) }) }
         if (module.collaborators.isNotEmpty()) {
             InfoRow(
