@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -206,29 +207,54 @@ private fun InstalledCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(modifier = Modifier.padding(14.dp)) {
-            InstalledAvatar(module, size = 52.dp)
-            Spacer(Modifier.width(14.dp))
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            InstalledAvatar(module, size = 48.dp)
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = module.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.size(2.dp))
-                PackageLabel(module.packageName)
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    text = buildString {
-                        append("Version ${module.versionName ?: module.versionCode}")
-                        if (module.scope.isNotEmpty()) append(" - ${module.scope.size} target apps")
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.size(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = module.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (update != null) {
+                        Spacer(Modifier.width(8.dp))
+                        FilledTonalButton(
+                            onClick = { onUpdate(update) },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            modifier = Modifier.height(34.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Update", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(1.dp))
+                PackageLabel(module.packageName)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = buildString {
+                            append("v${module.versionName ?: module.versionCode}")
+                            if (module.scope.isNotEmpty()) append(" - ${module.scope.size} targets")
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
                     when {
                         update != null -> StatusPill(
                             text = "Latest ${update.version.name}",
@@ -242,17 +268,8 @@ private fun InstalledCard(
                         )
                         else -> StatusPill(text = "Not in repository")
                     }
-                    Spacer(Modifier.weight(1f))
-                    if (update != null) {
-                        FilledTonalButton(onClick = { onUpdate(update) }) {
-                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Update")
-                        }
-                    }
                 }
             }
         }
     }
 }
-
