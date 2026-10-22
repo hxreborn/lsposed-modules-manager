@@ -49,34 +49,16 @@ import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.RepoModule
 import com.rushi.modulesmanager.data.formatBytes
 
-private val avatarPalette = listOf(
-    Color(0xFF00696E),
-    Color(0xFF3F5F90),
-    Color(0xFF6B4E8F),
-    Color(0xFF7A5B2E),
-    Color(0xFF356859),
-    Color(0xFF8A4B52),
-)
-
 @Composable
 fun ModuleAvatar(module: RepoModule, size: Dp = 52.dp) {
     val shape = RoundedCornerShape(size * 0.32f)
-    val color = avatarPalette[Math.floorMod(module.packageName.hashCode(), avatarPalette.size)]
-    val initial = module.displayName.trim().firstOrNull()?.uppercaseChar() ?: '?'
     val avatarUrl = module.avatarUrl()
     Box(
         modifier = Modifier
             .size(size)
-            .clip(shape)
-            .background(color),
-        contentAlignment = Alignment.Center,
+            .clip(shape),
     ) {
-        Text(
-            text = initial.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White,
-        )
+        Identicon(seed = module.packageName, modifier = Modifier.matchParentSize())
         if (avatarUrl != null) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -100,17 +82,7 @@ fun InstalledAvatar(module: InstalledModule, size: Dp = 52.dp) {
     Box(
         modifier = Modifier
             .size(size)
-            .clip(shape)
-            .then(
-                if (iconBitmap == null) {
-                    Modifier.background(
-                        avatarPalette[Math.floorMod(module.packageName.hashCode(), avatarPalette.size)],
-                    )
-                } else {
-                    Modifier
-                },
-            ),
-        contentAlignment = Alignment.Center,
+            .clip(shape),
     ) {
         if (iconBitmap != null) {
             Image(
@@ -120,13 +92,7 @@ fun InstalledAvatar(module: InstalledModule, size: Dp = 52.dp) {
                 modifier = Modifier.matchParentSize(),
             )
         } else {
-            val initial = module.label.trim().firstOrNull()?.uppercaseChar() ?: '?'
-            Text(
-                text = initial.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-            )
+            Identicon(seed = module.packageName, modifier = Modifier.matchParentSize())
         }
     }
 }
