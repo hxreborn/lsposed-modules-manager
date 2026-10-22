@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -73,14 +74,10 @@ private val DarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
-// Pitch black surfaces for people who want OLED pixels fully off.
-private val AmoledColors = DarkColors.copy(
+// Keep the active accents, including Material You ones, but turn the surfaces off.
+private fun ColorScheme.withAmoledSurfaces(): ColorScheme = copy(
     background = Color.Black,
-    onBackground = Color(0xFFE3E3E3),
     surface = Color.Black,
-    onSurface = Color(0xFFE3E3E3),
-    surfaceVariant = Color(0xFF1C1C1C),
-    onSurfaceVariant = Color(0xFFC6C6C6),
     surfaceContainerLowest = Color.Black,
     surfaceContainerLow = Color(0xFF070707),
     surfaceContainer = Color(0xFF0D0D0D),
@@ -88,8 +85,6 @@ private val AmoledColors = DarkColors.copy(
     surfaceContainerHighest = Color(0xFF1E1E1E),
     surfaceDim = Color.Black,
     surfaceBright = Color(0xFF2C2C2C),
-    outline = Color(0xFF8A8A8A),
-    outlineVariant = Color(0xFF2A2A2A),
 )
 
 @Composable
@@ -99,8 +94,7 @@ fun ModulesManagerTheme(
     amoled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        darkTheme && amoled -> AmoledColors
+    val baseScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -108,6 +102,7 @@ fun ModulesManagerTheme(
         darkTheme -> DarkColors
         else -> LightColors
     }
+    val colorScheme = if (darkTheme && amoled) baseScheme.withAmoledSurfaces() else baseScheme
     val view = LocalView.current
     SideEffect {
         val activity = view.context.findActivity() ?: return@SideEffect
