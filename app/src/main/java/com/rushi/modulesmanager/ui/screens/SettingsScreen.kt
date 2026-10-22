@@ -13,13 +13,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.InstallMobile
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
@@ -27,6 +31,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -43,13 +48,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.BuildConfig
+import com.rushi.modulesmanager.data.AiProvider
 import com.rushi.modulesmanager.data.AppTheme
 import com.rushi.modulesmanager.data.InstallerType
 import com.rushi.modulesmanager.data.ShizukuInstaller
+import com.rushi.modulesmanager.data.TldrApi
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.ui.components.HeaderDivider
 
@@ -61,10 +69,19 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val amoled by viewModel.amoled.collectAsStateWithLifecycle()
     val systemColors by viewModel.systemColors.collectAsStateWithLifecycle()
+    val aiProvider by viewModel.aiProvider.collectAsStateWithLifecycle()
+    val aiKeys by viewModel.aiKeys.collectAsStateWithLifecycle()
+    val aiKey = aiKeys[aiProvider].orEmpty()
+    val tldrPrompt by viewModel.tldrPrompt.collectAsStateWithLifecycle()
+    val githubToken by viewModel.githubToken.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
     var showInstallerDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showKeyDialog by remember { mutableStateOf(false) }
+    var showProviderDialog by remember { mutableStateOf(false) }
+    var showPromptDialog by remember { mutableStateOf(false) }
+    var showGithubDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(showInstallerDialog) {
         if (showInstallerDialog) viewModel.refreshShizukuStatus()
@@ -134,6 +151,41 @@ fun SettingsScreen(viewModel: AppViewModel) {
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SectionTitle("Summaries")
+            SettingsRow(
+                icon = Icons.Outlined.Cloud,
+                title = "AI provider",
+                subtitle = "${aiProvider.label} (${aiProvider.model})",
+                onClick = { showProviderDialog = true },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.AutoAwesome,
+                title = "${aiProvider.label} API key",
+                subtitle = if (aiKey.isBlank()) {
+                    "Not set. Tap TLDR on a module to summarize it with your own key"
+                } else {
+                    "Set, ending in ${aiKey.takeLast(4)}"
+                },
+                onClick = { showKeyDialog = true },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.EditNote,
+                title = "Summary prompt",
+                subtitle = if (tldrPrompt == TldrApi.DEFAULT_PROMPT) "Default" else "Custom",
+                onClick = { showPromptDialog = true },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.Key,
+                title = "GitHub token",
+                subtitle = if (githubToken.isBlank()) {
+                    "Not set. GitHub allows 60 requests an hour without one"
+                } else {
+                    "Set, ending in ${githubToken.takeLast(4)}"
+                },
+                onClick = { showGithubDialog = true },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionTitle("About")
             SettingsRow(
                 icon = Icons.Outlined.LocalCafe,
@@ -195,6 +247,111 @@ fun SettingsScreen(viewModel: AppViewModel) {
             confirmButton = {
                 TextButton(onClick = { showChannelDialog = false }) { Text("Close") }
             },
+        )
+    }
+
+    if (showPromptDialog) {
+        var draft by remember { mutableStateOf(tldrPrompt) }
+        AlertDialog(
+            onDismissRequest = { showPromptDialog = false },
+            title = { Text("Summary prompt") },
+            text = {
+                Column {
+                    Text(
+                        text = "Sent before each module's facts. ${TldrApi.LANGUAGE_TOKEN} becomes the device language. Changing it makes TLDR ask again for modules summarized with the old prompt.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        minLines = 6,
+                        maxLines = 14,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setTldrPrompt(draft)
+                    showPromptDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = { draft = TldrApi.DEFAULT_PROMPT },
+                        enabled = draft != TldrApi.DEFAULT_PROMPT,
+                    ) { Text("Reset") }
+                    TextButton(onClick = { showPromptDialog = false }) { Text("Cancel") }
+                }
+            },
+        )
+    }
+
+    if (showKeyDialog) {
+        SecretDialog(
+            title = "${aiProvider.label} API key",
+            description = "Stored only on this device. Summaries are generated one module at a time when you tap TLDR.",
+            placeholder = aiProvider.keyHint,
+            value = aiKey,
+            onSave = { viewModel.setAiKey(aiProvider, it) },
+            onDismiss = { showKeyDialog = false },
+        )
+    }
+
+    if (showProviderDialog) {
+        AlertDialog(
+            onDismissRequest = { showProviderDialog = false },
+            title = { Text("AI provider") },
+            text = {
+                Column {
+                    AiProvider.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setAiProvider(option)
+                                    showProviderDialog = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = aiProvider == option,
+                                onClick = {
+                                    viewModel.setAiProvider(option)
+                                    showProviderDialog = false
+                                },
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = if (aiKeys[option].isNullOrBlank()) "${option.model}, no key" else "${option.model}, key set",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProviderDialog = false }) { Text("Close") }
+            },
+        )
+    }
+
+    if (showGithubDialog) {
+        SecretDialog(
+            title = "GitHub token",
+            description = "Stored only on this device and sent only to api.github.com. A token with no scopes is enough to read public repositories.",
+            placeholder = "ghp_... or github_pat_...",
+            value = githubToken,
+            onSave = viewModel::setGithubToken,
+            onDismiss = { showGithubDialog = false },
         )
     }
 
@@ -415,3 +572,54 @@ private fun SettingsRow(
     }
 }
 
+@Composable
+private fun SecretDialog(
+    title: String,
+    description: String,
+    placeholder: String,
+    value: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var draft by remember { mutableStateOf(value) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(12.dp))
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    placeholder = { Text(placeholder) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(draft)
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(
+                    onClick = {
+                        onSave("")
+                        onDismiss()
+                    },
+                    enabled = value.isNotEmpty(),
+                ) { Text("Clear") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}

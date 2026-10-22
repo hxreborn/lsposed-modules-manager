@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.rushi.modulesmanager.data.AiProvider
 import com.rushi.modulesmanager.data.ApkInspector
 import com.rushi.modulesmanager.data.ApkInstaller
 import com.rushi.modulesmanager.data.AppTheme
@@ -23,6 +24,7 @@ import com.rushi.modulesmanager.data.RepoAsset
 import com.rushi.modulesmanager.data.RepoModule
 import com.rushi.modulesmanager.data.ShizukuInstaller
 import com.rushi.modulesmanager.data.SortMode
+import com.rushi.modulesmanager.data.TldrApi
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.data.userMessage
 import kotlinx.coroutines.CancellationException
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -50,7 +53,10 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+
+data class TldrState(val text: String? = null, val loading: Boolean = false)
 
 data class ModuleUpdate(
     val installed: InstalledModule,
@@ -70,6 +76,13 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val amoled: StateFlow<Boolean> = settings.amoled
     val systemColors: StateFlow<Boolean> = settings.systemColors
     val updatesFirst: StateFlow<Boolean> = settings.updatesFirst
+    val aiProvider: StateFlow<AiProvider> = settings.aiProvider
+    val aiKeys: StateFlow<Map<AiProvider, String>> = settings.aiKeys
+    val tldrPrompt: StateFlow<String> = settings.tldrPrompt
+    val githubToken: StateFlow<String> = settings.githubToken
+
+    private val _tldrs = MutableStateFlow<Map<String, TldrState>>(emptyMap())
+    val tldrs: StateFlow<Map<String, TldrState>> = _tldrs.asStateFlow()
 
     private val _shizukuStatus = MutableStateFlow(ShizukuInstaller.status())
     val shizukuStatus: StateFlow<ShizukuInstaller.Status> = _shizukuStatus.asStateFlow()
@@ -397,6 +410,56 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun setSystemColors(enabled: Boolean) {
         settings.setSystemColors(enabled)
     }
+
+    fun setAiProvider(provider: AiProvider) {
+        settings.setAiProvider(provider)
+        _tldrs.value = emptyMap()
+    }
+
+    fun setAiKey(provider: AiProvider, key: String) {
+        settings.setAiKey(provider, key.trim())
+    }
+
+    fun setGithubToken(token: String) {
+        settings.setGithubToken(token.filterNot { it.isWhitespace() })
+    }
+
+    fun setTldrPrompt(prompt: String) {
+        settings.setTldrPrompt(prompt)
+        _tldrs.value = emptyMap()
+    }
+
+    fun cachedTldr(module: RepoModule): String? =
+        settings.cachedTldr(tldrKey(module, settings.aiProvider.value, settings.tldrPrompt.value))
+
+    fun summarize(module: RepoModule) {
+        val provider = settings.aiProvider.value
+        val apiKey = settings.aiKeys.value[provider]?.takeIf { it.isNotBlank() } ?: return
+        if (_tldrs.value[module.packageName]?.loading == true) return
+        val prompt = settings.tldrPrompt.value
+        _tldrs.update { it + (module.packageName to TldrState(loading = true)) }
+        viewModelScope.launch {
+            try {
+                val sourceRepo = module.githubRepoFullName()
+                val readmeHtml = module.readmeHtml
+                    ?: listOfNotNull(sourceRepo, module.repoFullName).distinct()
+                        .firstNotNullOfOrNull { container.readmeApi.fetchHtml(it) }
+                        ?.also { container.repo.applyReadme(module.packageName, it) }
+                val uiStrings = if (readmeHtml == null) sourceRepo?.let { container.readmeApi.fetchUiStrings(it) } else null
+                val text = container.tldrApi.summarize(provider, apiKey, Locale.getDefault(), prompt, module, readmeHtml, uiStrings)
+                if (text != TldrApi.NO_DETAILS) settings.saveTldr(tldrKey(module, provider, prompt), text)
+                _tldrs.update { it + (module.packageName to TldrState(text = text)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _tldrs.update { it - module.packageName }
+                message("Summary failed: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    private fun tldrKey(module: RepoModule, provider: AiProvider, prompt: String): String =
+        "${provider.key}:${prompt.hashCode()}:${module.packageName}:${module.latestRelease.orEmpty()}:${Locale.getDefault().toLanguageTag()}"
 
     fun openModule(packageName: String) {
         detailJob?.cancel()

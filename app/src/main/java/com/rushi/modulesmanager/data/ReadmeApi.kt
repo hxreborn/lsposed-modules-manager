@@ -22,4 +22,19 @@ class ReadmeApi(private val client: OkHttpClient) {
             response.body?.string()?.takeIf { it.isNotBlank() }
         }
     }
+
+    suspend fun fetchUiStrings(repoFullName: String): String? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("https://raw.githubusercontent.com/$repoFullName/HEAD/app/src/main/res/values/strings.xml")
+            .header("User-Agent", RepoApi.USER_AGENT)
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext null
+            Regex("<string[^>]*>([^<]{3,})</string>")
+                .findAll(response.body?.string().orEmpty())
+                .joinToString(" | ") { it.groupValues[1] }
+                .takeIf { it.isNotBlank() }
+        }
+    }
 }

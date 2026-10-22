@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -41,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.ModuleUpdate
+import com.rushi.modulesmanager.TldrState
 import com.rushi.modulesmanager.data.InstalledPackageVersion
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoModule
@@ -99,6 +103,9 @@ fun RepoListScreen(
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val tldrs by viewModel.tldrs.collectAsStateWithLifecycle()
+    val aiProvider by viewModel.aiProvider.collectAsStateWithLifecycle()
+    val aiKeys by viewModel.aiKeys.collectAsStateWithLifecycle()
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(RepoFilter.ALL) }
@@ -305,6 +312,12 @@ fun RepoListScreen(
                                     installed = installedByPackage[module.packageName],
                                     update = updatesByPackage[module.packageName],
                                     channel = channel,
+                                    tldr = tldrs[module.packageName]
+                                        ?: remember(module.packageName, module.latestRelease) {
+                                            viewModel.cachedTldr(module)?.let { TldrState(text = it) }
+                                        },
+                                    canSummarize = !aiKeys[aiProvider].isNullOrBlank(),
+                                    onSummarize = { viewModel.summarize(module) },
                                     onClick = { onOpenModule(module.packageName) },
                                 )
                             }
@@ -348,6 +361,9 @@ private fun ModuleCard(
     installed: InstalledPackageVersion?,
     update: ModuleUpdate?,
     channel: UpdateChannel,
+    tldr: TldrState?,
+    canSummarize: Boolean,
+    onSummarize: () -> Unit,
     onClick: () -> Unit,
 ) {
     Card(
@@ -378,6 +394,7 @@ private fun ModuleCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                TldrLine(tldr = tldr, canSummarize = canSummarize, onSummarize = onSummarize)
                 Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -420,6 +437,50 @@ private fun ModuleCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TldrLine(tldr: TldrState?, canSummarize: Boolean, onSummarize: () -> Unit) {
+    when {
+        tldr?.text != null -> {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = "AI summary",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 2.dp).size(14.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = tldr.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        tldr?.loading == true -> {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Summarizing",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        canSummarize -> TextButton(
+            onClick = onSummarize,
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+            modifier = Modifier.height(32.dp),
+        ) {
+            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("TLDR", style = MaterialTheme.typography.labelMedium)
         }
     }
 }

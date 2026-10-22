@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("modules_manager", Context.MODE_PRIVATE)
+    private val tldrPrefs = context.getSharedPreferences("tldr_cache", Context.MODE_PRIVATE)
 
     private val _channel = MutableStateFlow(UpdateChannel.fromKey(prefs.getString(KEY_CHANNEL, null)))
     val channel: StateFlow<UpdateChannel> = _channel.asStateFlow()
@@ -28,6 +29,49 @@ class Settings(context: Context) {
 
     private val _updatesFirst = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_FIRST, true))
     val updatesFirst: StateFlow<Boolean> = _updatesFirst.asStateFlow()
+
+    private val _aiProvider = MutableStateFlow(AiProvider.fromKey(prefs.getString(KEY_AI_PROVIDER, null)))
+    val aiProvider: StateFlow<AiProvider> = _aiProvider.asStateFlow()
+
+    private val _aiKeys = MutableStateFlow(
+        AiProvider.entries.associateWith { prefs.getString(aiKeyPrefName(it), null).orEmpty() },
+    )
+    val aiKeys: StateFlow<Map<AiProvider, String>> = _aiKeys.asStateFlow()
+
+    fun setAiProvider(provider: AiProvider) {
+        prefs.edit().putString(KEY_AI_PROVIDER, provider.key).apply()
+        _aiProvider.value = provider
+    }
+
+    fun setAiKey(provider: AiProvider, key: String) {
+        prefs.edit().putString(aiKeyPrefName(provider), key).apply()
+        _aiKeys.value = _aiKeys.value + (provider to key)
+    }
+
+    private fun aiKeyPrefName(provider: AiProvider) = "${provider.key}_api_key"
+
+    private val _githubToken = MutableStateFlow(prefs.getString(KEY_GITHUB_TOKEN, null).orEmpty())
+    val githubToken: StateFlow<String> = _githubToken.asStateFlow()
+
+    fun setGithubToken(token: String) {
+        prefs.edit().putString(KEY_GITHUB_TOKEN, token).apply()
+        _githubToken.value = token
+    }
+
+    private val _tldrPrompt = MutableStateFlow(prefs.getString(KEY_TLDR_PROMPT, null) ?: TldrApi.DEFAULT_PROMPT)
+    val tldrPrompt: StateFlow<String> = _tldrPrompt.asStateFlow()
+
+    fun setTldrPrompt(prompt: String) {
+        val custom = prompt.trim().takeIf { it.isNotEmpty() && it != TldrApi.DEFAULT_PROMPT }
+        prefs.edit().apply { if (custom == null) remove(KEY_TLDR_PROMPT) else putString(KEY_TLDR_PROMPT, custom) }.apply()
+        _tldrPrompt.value = custom ?: TldrApi.DEFAULT_PROMPT
+    }
+
+    fun cachedTldr(key: String): String? = tldrPrefs.getString(key, null)
+
+    fun saveTldr(key: String, text: String) {
+        tldrPrefs.edit().putString(key, text).apply()
+    }
 
     fun setChannel(channel: UpdateChannel) {
         prefs.edit().putString(KEY_CHANNEL, channel.key).apply()
@@ -79,5 +123,8 @@ class Settings(context: Context) {
         const val KEY_SYSTEM_COLORS = "system_colors"
         const val KEY_UPDATES_FIRST = "updates_first"
         const val KEY_LAST_LIVE_CHECK = "last_live_check"
+        const val KEY_AI_PROVIDER = "ai_provider"
+        const val KEY_TLDR_PROMPT = "tldr_prompt"
+        const val KEY_GITHUB_TOKEN = "github_token"
     }
 }
