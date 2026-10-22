@@ -1,102 +1,43 @@
-# Modules Manager
+# Modules Manager 📦
 
-An Android client for the Xposed module ecosystem. It helps you find, install and update modules
-without browsing GitHub releases by hand. It is a companion to LSPosed, not a replacement for the
-LSPosed framework: installing a module here only puts the APK on the device, enabling it still
-happens in LSPosed.
+An Android app for finding, installing and updating Xposed/Lsposed modules.
 
 - Package: `com.rushi.modulesmanager`
-- App name: Modules Manager
-- Min Android: 8.1 (API 26), target Android 16 (API 36)
+- Android 8.1 (API 26) and newer
+- ⬇️ [Latest release](https://github.com/rushiranpise/lsposed-modules-manager/releases)
 
 ## Features
 
-- Uses one daily module index instead of scraping the LSPosed website:
-  `https://raw.githubusercontent.com/rushiranpise/xposed-modules/main/data/repos.json`.
-  It currently contains about 1273 modules, each with a package name, summary, target scopes and
-  its latest release.
-- Installed modules are checked against GitHub releases on refresh and at most once every six
-  hours, so a release published after the daily snapshot still shows up. The checks use ETags and
-  stop quietly if GitHub rate-limits or is unavailable.
-- Search, sort by name or last update, and filter to updates, installed, or not installed modules.
-- Update badges for installed modules, matched by package name and version.
-- Module page with the summary, latest release, APK install button and information links.
-- Downloads in the background with a progress banner, then verifies that the APK is for the
-  expected package, is not older than the installed version, and is signed with the same key
-  before handing it to the system installer.
-- Installer choice in Settings: open the APK in the system package installer, use a
-  `PackageInstaller` session, or install silently through Shizuku (Shizuku must be running and
-  the permission granted). Android still shows its confirmation dialog for the first two, since a
-  normal app cannot skip it with `setRequireUserAction`; only a privileged installer such as the
-  shell can.
-- Installed screen lists every installed Xposed module, including ones the index does not know
-  about, which are marked "Not in repository". Packages from the index that do not declare Xposed
-  metadata are included too, and modules with a newer release show an update button. The Modules
-  screen's Installed filter stays scoped to the index.
-- Material 3 UI with dynamic color, dark mode, centered filters, a draggable scrollbar and
-  scroll-to-top control.
-
-## Data format
-
-The index is an array of GitHub repositories. Each module entry has:
-
-- `package` (or an `org_repo` under `Xposed-Modules-Repo/` to derive it from),
-- `full_name`, `summary`, `description`, `homepage`, `source_url`, `scope`,
-- `release` with `tag`, `name`, `published_at`, `html_url`, `apk_url` and `prerelease`.
-
-The app builds one module from each entry that has a package and an APK. Tags are normally
-`versionCode-versionName`, such as `520-3.8.3.r520.9605640`. Plain tags such as `v1.3.0` are also
-accepted and compared by version name.
-
-The daily index does not include READMEs or release history. The Overview tab shows the module
-summary, and the Releases tab shows the latest release from the index. Live checks replace that
-release when GitHub has a newer one.
+- Browse over 2,000 module repositories from the daily [xposed-modules index](https://github.com/rushiranpise/xposed-modules).
+- Search, sort by name or last update, and filter by updates, installed or not installed.
+- See the installed version next to an available update.
+- Open a module to read its README, latest release and target apps.
+- Install with the system installer, a PackageInstaller session, or Shizuku for silent installs.
+- Long press an installed module to uninstall it.
+- The Installed tab lists every installed module, including ones missing from the index.
+- Light, dark and system themes, Material You colors, AMOLED black and GitHub-style identicons.
 
 ## Build
+
+Requires JDK 21 and Android SDK 37.
 
 ```bash
 ./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
 ```
 
-Requires JDK 21 and Android SDK 37 (compileSdk 37). Dependencies come from Google Maven and Maven
-Central; no other setup is needed. The unit tests use a local `MockWebServer` and cover the daily
-index schema, tag/version comparison, live GitHub release parsing and the asset download fallback.
+Signed release APKs are built by the [release workflow](.github/workflows/release.yml) when a `v*` tag is pushed.
 
-## Structure
+## Data
 
-```text
-app/src/main/java/com/rushi/modulesmanager/
-  AppViewModel.kt            Shared state: modules, updates, live checks, downloads
-  data/Models.kt             Models, repos.json parsing, channels and version matching
-  data/RepoApi.kt            Daily index fetching and APK downloads
-  data/RepoRepository.kt     In-memory list, disk cache and live-release merging
-  data/LiveReleaseApi.kt     GitHub latest-release checks for installed modules
-  data/Settings.kt           Channel, sort and live-check preferences
-  data/InstalledModules.kt   Installed package and Xposed module detection
-  data/ApkInstaller.kt       System installer intent and PackageInstaller session handling
-  data/InstallerType.kt      Installer choice stored in Settings
-  data/ShizukuInstaller.kt   Shizuku permission flow and silent `pm install`
-  data/ApkInspector.kt       Package/signature verification of downloaded APKs
-  ui/                        Compose screens and components
-```
+The app reads the daily index from:
 
-## Notes
+`https://raw.githubusercontent.com/rushiranpise/xposed-modules/main/data/repos.json`
 
-- Custom repositories and the repository picker were removed. The app uses the daily index only.
-- The Installed tab shows every installed module, so its count can be higher than the Installed
-  filter on the Modules screen; that filter only counts index entries. Modules missing from the
-  index appear with a "Not in repository" pill and have no update information.
-- If an installed package is in the index but its release was not fetched by the collector, the
-  app asks its `Xposed-Modules-Repo` GitHub mirror for the latest release and adds it. This keeps
-  installed counts complete when the daily index has a missing release.
-- The index has one APK URL per module, usually the release asset picked by the data collector.
-  Live checks expose all APK assets from the latest GitHub release when an update is found.
-- Installing and updating requires the system "install unknown apps" permission. Updates signed
-  with a different key than the installed app are rejected before the installer opens.
-- Modules Manager does not check module safety beyond package identity and signing keys. Treat
-  modules like any other sideloaded APK.
+Each entry provides the package, summary, target scope and latest APK release. Installed modules are checked against GitHub releases when the app starts, then at most once every six hours, so releases published after the daily snapshot still appear. The index has no README or full release history, so the app fetches the README when a module is opened.
+
+The Installed tab counts every installed module. The Installed filter on the Modules screen only counts modules that are in the index.
 
 ## License
 
-Modules Manager is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
+GPL-3.0. See [LICENSE](LICENSE).
