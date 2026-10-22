@@ -30,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.BuildConfig
 import com.rushi.modulesmanager.data.InstallerType
+import com.rushi.modulesmanager.data.ShizukuInstaller
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.ui.components.HeaderDivider
 
@@ -49,9 +51,14 @@ import com.rushi.modulesmanager.ui.components.HeaderDivider
 fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val installer by viewModel.installer.collectAsStateWithLifecycle()
+    val shizukuStatus by viewModel.shizukuStatus.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
     var showInstallerDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showInstallerDialog) {
+        if (showInstallerDialog) viewModel.refreshShizukuStatus()
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -165,7 +172,9 @@ fun SettingsScreen(viewModel: AppViewModel) {
                                 .fillMaxWidth()
                                 .clickable {
                                     viewModel.setInstaller(option)
-                                    showInstallerDialog = false
+                                    // Keep the dialog open for Shizuku so its state and the action
+                                    // that resolves it stay visible.
+                                    if (option != InstallerType.SHIZUKU) showInstallerDialog = false
                                 }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -174,7 +183,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
                                 selected = installer == option,
                                 onClick = {
                                     viewModel.setInstaller(option)
-                                    showInstallerDialog = false
+                                    if (option != InstallerType.SHIZUKU) showInstallerDialog = false
                                 },
                             )
                             Column(modifier = Modifier.weight(1f)) {
@@ -184,6 +193,48 @@ fun SettingsScreen(viewModel: AppViewModel) {
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                            }
+                        }
+                    }
+                    if (installer == InstallerType.SHIZUKU) {
+                        HorizontalDivider(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = when (shizukuStatus) {
+                                    ShizukuInstaller.Status.READY -> "Shizuku is running and allowed"
+                                    ShizukuInstaller.Status.PERMISSION_REQUIRED ->
+                                        "Shizuku permission is not granted"
+                                    ShizukuInstaller.Status.NOT_RUNNING -> "Shizuku is not running"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (shizukuStatus == ShizukuInstaller.Status.READY) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (shizukuStatus != ShizukuInstaller.Status.READY) {
+                                TextButton(
+                                    onClick = {
+                                        if (shizukuStatus == ShizukuInstaller.Status.NOT_RUNNING) {
+                                            viewModel.openShizuku()
+                                        } else {
+                                            viewModel.requestShizukuPermission()
+                                        }
+                                    },
+                                ) {
+                                    Text(
+                                        if (shizukuStatus == ShizukuInstaller.Status.NOT_RUNNING) {
+                                            "Start"
+                                        } else {
+                                            "Allow"
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

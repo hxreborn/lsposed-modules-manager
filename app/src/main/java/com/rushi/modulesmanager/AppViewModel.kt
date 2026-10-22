@@ -47,6 +47,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import rikka.shizuku.Shizuku
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -65,6 +66,12 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val sortMode: StateFlow<SortMode> = settings.sortMode
     val installer: StateFlow<InstallerType> = settings.installer
     val updatesFirst: StateFlow<Boolean> = settings.updatesFirst
+
+    private val _shizukuStatus = MutableStateFlow(ShizukuInstaller.status())
+    val shizukuStatus: StateFlow<ShizukuInstaller.Status> = _shizukuStatus.asStateFlow()
+
+    private val shizukuBinderReceived = Shizuku.OnBinderReceivedListener { refreshShizukuStatus() }
+    private val shizukuBinderDead = Shizuku.OnBinderDeadListener { refreshShizukuStatus() }
 
     val modules: StateFlow<List<RepoModule>> = container.repo.modules
     val loading: StateFlow<Boolean> = container.repo.loading
@@ -93,6 +100,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     private var detailJob: Job? = null
     private var downloadJob: Job? = null
+    private var shizukuPermissionJob: Job? = null
     private var installedRebuildJob: Job? = null
     private var liveCheckJob: Job? = null
     private var discoveryJob: Job? = null
@@ -114,6 +122,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
+        runCatching {
+            Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceived)
+            Shizuku.addBinderDeadListener(shizukuBinderDead)
+        }
         rescan()
         viewModelScope.launch {
             loadMutex.withLock { container.repo.load(DefaultSources.official) }
@@ -306,6 +318,43 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setInstaller(installer: InstallerType) {
         settings.setInstaller(installer)
+        if (installer == InstallerType.SHIZUKU) requestShizukuPermission()
+    }
+
+    fun refreshShizukuStatus() {
+        _shizukuStatus.value = ShizukuInstaller.status()
+    }
+
+    /**
+     * Asks Shizuku for the permission as soon as the mode is selected, instead of waiting for the
+     * first install. The mode stays selected when Shizuku is not running: the install then falls
+     * back to a session and the next attempt tries Shizuku again.
+     */
+    fun requestShizukuPermission() {
+        refreshShizukuStatus()
+        when (_shizukuStatus.value) {
+            ShizukuInstaller.Status.READY -> {
+                message("Shizuku permission is already granted")
+                return
+            }
+            ShizukuInstaller.Status.NOT_RUNNING -> {
+                message("Start Shizuku, then choose Shizuku again")
+                return
+            }
+            ShizukuInstaller.Status.PERMISSION_REQUIRED -> Unit
+        }
+        if (shizukuPermissionJob?.isActive == true) return
+        shizukuPermissionJob = viewModelScope.launch {
+            val granted = ShizukuInstaller.ensurePermission()
+            refreshShizukuStatus()
+            message(if (granted) "Shizuku permission granted" else "Shizuku permission was not granted")
+        }
+    }
+
+    fun openShizuku() {
+        if (!ShizukuInstaller.openManager(container.appContext)) {
+            message("Shizuku is not installed")
+        }
     }
 
     fun setUpdatesFirst(enabled: Boolean) {
@@ -425,7 +474,13 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                             }
                             file.delete()
                         } else {
-                            message("Shizuku is unavailable, using the system installer")
+                            refreshShizukuStatus()
+                            val reason = if (!ShizukuInstaller.isRunning()) {
+                                "Shizuku is not running"
+                            } else {
+                                "Shizuku permission was not granted"
+                            }
+                            message("$reason, using the session installer")
                             if (ApkInstaller.canInstall(appContext)) {
                                 runSessionInstall(appContext, file, module)
                             } else {
@@ -517,6 +572,14 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun String.sanitizeFileName(): String =
         replace(Regex("[^A-Za-z0-9._-]"), "_").take(64).ifBlank { "module.apk" }
+
+    override fun onCleared() {
+        runCatching {
+            Shizuku.removeBinderReceivedListener(shizukuBinderReceived)
+            Shizuku.removeBinderDeadListener(shizukuBinderDead)
+        }
+        super.onCleared()
+    }
 
     companion object {
         private const val LIVE_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000L

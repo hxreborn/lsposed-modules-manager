@@ -1,8 +1,11 @@
 package com.rushi.modulesmanager.data
 
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -19,6 +22,15 @@ object ShizukuInstaller {
     private const val PERMISSION_REQUEST_CODE = 0x5348
     private const val PERMISSION_TIMEOUT_MS = 60_000L
     private const val INSTALL_TIMEOUT_SECONDS = 120L
+    private const val BINDER_WAIT_MS = 2_000L
+    private const val SHIZUKU_PACKAGE = "moe.shizuku.manager"
+
+    /** What this app can do with Shizuku right now. The three states need different words. */
+    enum class Status {
+        NOT_RUNNING,
+        PERMISSION_REQUIRED,
+        READY,
+    }
 
     fun isRunning(): Boolean = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
 
@@ -26,9 +38,33 @@ object ShizukuInstaller {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)
 
+    fun status(): Status = when {
+        !isRunning() -> Status.NOT_RUNNING
+        isGranted() -> Status.READY
+        else -> Status.PERMISSION_REQUIRED
+    }
+
+    /** Shizuku hands its binder over asynchronously, so a just-started service is not missed. */
+    suspend fun awaitRunning(): Boolean {
+        if (isRunning()) return true
+        val deadline = System.currentTimeMillis() + BINDER_WAIT_MS
+        while (System.currentTimeMillis() < deadline) {
+            delay(100)
+            if (isRunning()) return true
+        }
+        return false
+    }
+
+    /** Opens the Shizuku app, which is the only place the service can be started. */
+    fun openManager(context: Context): Boolean {
+        val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE) ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
     suspend fun ensurePermission(): Boolean {
         if (isGranted()) return true
-        if (!isRunning()) return false
+        if (!awaitRunning()) return false
         return withTimeoutOrNull(PERMISSION_TIMEOUT_MS) {
             suspendCancellableCoroutine { continuation ->
                 lateinit var listener: Shizuku.OnRequestPermissionResultListener
