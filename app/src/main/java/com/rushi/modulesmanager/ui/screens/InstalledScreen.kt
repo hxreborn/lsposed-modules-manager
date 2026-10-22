@@ -271,7 +271,7 @@ private fun InstalledCard(
                                 modifier = Modifier.size(14.dp),
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Update", style = MaterialTheme.typography.labelMedium)
+                            Text("Install", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
