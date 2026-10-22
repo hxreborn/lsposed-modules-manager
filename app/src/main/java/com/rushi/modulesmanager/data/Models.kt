@@ -119,6 +119,22 @@ data class RepoModule(
         return pool.firstOrNull { it.apkAssets.isNotEmpty() } ?: pool.firstOrNull()
     }
 
+    /** GitHub owner/repo that hosts the module source, used to fetch its README. */
+    fun githubRepoFullName(): String? {
+        repoFullName
+            ?.takeIf { it.contains('/') && !it.startsWith("Xposed-Modules-Repo/", ignoreCase = true) }
+            ?.let { return it }
+        val candidates = listOf(sourceUrl, url, homepageUrl)
+        for (candidate in candidates) {
+            val match = Regex("github\\.com/([^/]+)/([^/?#]+)", RegexOption.IGNORE_CASE)
+                .find(candidate ?: "") ?: continue
+            val owner = match.groupValues[1]
+            if (owner.equals("Xposed-Modules-Repo", ignoreCase = true)) continue
+            return "$owner/${match.groupValues[2].removeSuffix(".git")}"
+        }
+        return null
+    }
+
     /** GitHub owner of the module, used for its avatar. */
     fun avatarUrl(): String? {
         val candidate = sourceUrl ?: url ?: homepageUrl ?: return null

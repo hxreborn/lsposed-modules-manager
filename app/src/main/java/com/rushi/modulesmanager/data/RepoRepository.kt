@@ -123,6 +123,14 @@ class RepoRepository(
         }
     }
 
+    /** Keeps a README fetched from GitHub so reopening a module does not fetch it again. */
+    fun applyReadme(packageName: String, html: String) {
+        _modules.value = _modules.value.map { module ->
+            if (module.packageName == packageName) module.copy(readmeHtml = html) else module
+        }
+        details[packageName]?.let { details[packageName] = it.copy(readmeHtml = html) }
+    }
+
     fun cachedModule(packageName: String): RepoModule? =
         details[packageName] ?: _modules.value.firstOrNull { it.packageName == packageName }
 

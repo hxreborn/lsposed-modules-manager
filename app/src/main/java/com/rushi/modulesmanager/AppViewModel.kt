@@ -411,6 +411,19 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 _detailError.value = "This module is not available in the selected repository."
             }
             _detailLoading.value = false
+
+            // The daily index does not carry the README, so fetch it from GitHub on demand.
+            val module = _detail.value
+            if (module != null && module.readmeHtml.isNullOrBlank()) {
+                val repoFullName = module.githubRepoFullName()
+                if (repoFullName != null) {
+                    val html = container.readmeApi.fetchHtml(repoFullName)
+                    if (html != null && _detail.value?.packageName == packageName) {
+                        container.repo.applyReadme(packageName, html)
+                        _detail.value = _detail.value?.copy(readmeHtml = html)
+                    }
+                }
+            }
         }
     }
 
