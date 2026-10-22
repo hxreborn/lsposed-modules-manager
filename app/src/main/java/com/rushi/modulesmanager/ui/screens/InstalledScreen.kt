@@ -280,12 +280,8 @@ private fun InstalledCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = buildString {
-                            // The installed version is shown by the update block when there is one.
-                            if (update == null) append("v${module.versionName ?: module.versionCode}")
-                            if (module.scope.isNotEmpty()) {
-                                if (isNotEmpty()) append(" - ")
-                                append("${module.scope.size} targets")
-                            }
+                            append("v${module.versionName ?: module.versionCode}")
+                            if (module.scope.isNotEmpty()) append(" - ${module.scope.size} targets")
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -295,21 +291,19 @@ private fun InstalledCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     when {
-                        update != null -> Column(
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        update != null -> Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             StatusPill(
                                 text = "Update ${update.version.name}",
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
-                            Text(
+                            StatusPill(
                                 text = "Installed ${module.versionName ?: module.versionCode}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             )
                         }
                         repoModule != null -> StatusPill(
