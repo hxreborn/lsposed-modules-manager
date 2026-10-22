@@ -382,22 +382,35 @@ private fun ModuleCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    when {
-                        update != null -> StatusPill(
-                            text = "Update ${update.version.name}",
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        installed != null -> StatusPill(
-                            text = "Installed ${installed.versionName.orEmpty()}".trim(),
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        latest != null -> StatusPill(text = "v${latest.name}")
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        when {
+                            update != null -> {
+                                StatusPill(
+                                    text = "Update ${update.version.name}",
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                StatusPill(
+                                    text = "Installed ${update.installed.versionName.orEmpty()}".trim(),
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                            installed != null -> StatusPill(
+                                text = "Installed ${installed.versionName.orEmpty()}".trim(),
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            latest != null -> StatusPill(text = "v${latest.name}")
+                        }
                     }
-                    Spacer(Modifier.weight(1f))
                     val date = formatDate(module.latestTime(channel) ?: module.updatedAt)
                     if (date != null) {
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = date,
                             style = MaterialTheme.typography.labelSmall,
