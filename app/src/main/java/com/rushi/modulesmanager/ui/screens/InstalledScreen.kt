@@ -60,6 +60,8 @@ import com.rushi.modulesmanager.ui.components.StatusPill
 import com.rushi.modulesmanager.ui.components.VerticalScrollbar
 import kotlinx.coroutines.launch
 
+private enum class InstalledFilter { ALL, UPDATES, NOT_IN_REPO }
+
 @Composable
 fun InstalledScreen(
     viewModel: AppViewModel,
@@ -69,18 +71,26 @@ fun InstalledScreen(
     val updates by viewModel.updates.collectAsStateWithLifecycle()
     val modules by viewModel.modules.collectAsStateWithLifecycle()
 
-    var updatesOnly by rememberSaveable { mutableStateOf(false) }
+    var filter by rememberSaveable { mutableStateOf(InstalledFilter.ALL) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     val modulesByPackage = remember(modules) { modules.associateBy { it.packageName } }
     val updatesByPackage = remember(updates) { updates.associateBy { it.installed.packageName } }
-    val visible = remember(installed, updatesByPackage, updatesOnly) {
-        installed.filter { !updatesOnly || updatesByPackage.containsKey(it.packageName) }
-            .sortedWith(
-                compareBy<InstalledModule> { if (updatesByPackage.containsKey(it.packageName)) 0 else 1 }
-                    .thenBy { it.label.lowercase() },
-            )
+    val notInRepoCount = remember(installed, modulesByPackage) {
+        installed.count { it.packageName !in modulesByPackage }
+    }
+    val visible = remember(installed, updatesByPackage, modulesByPackage, filter) {
+        installed.filter { module ->
+            when (filter) {
+                InstalledFilter.ALL -> true
+                InstalledFilter.UPDATES -> updatesByPackage.containsKey(module.packageName)
+                InstalledFilter.NOT_IN_REPO -> module.packageName !in modulesByPackage
+            }
+        }.sortedWith(
+            compareBy<InstalledModule> { if (updatesByPackage.containsKey(it.packageName)) 0 else 1 }
+                .thenBy { it.label.lowercase() },
+        )
     }
 
     Scaffold(
@@ -115,16 +125,22 @@ fun InstalledScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CountedFilterChip(
-                    selected = !updatesOnly,
-                    onClick = { updatesOnly = false },
+                    selected = filter == InstalledFilter.ALL,
+                    onClick = { filter = InstalledFilter.ALL },
                     label = "All",
                     count = installed.size,
                 )
                 CountedFilterChip(
-                    selected = updatesOnly,
-                    onClick = { updatesOnly = true },
+                    selected = filter == InstalledFilter.UPDATES,
+                    onClick = { filter = InstalledFilter.UPDATES },
                     label = "Updates",
                     count = updates.size,
+                )
+                CountedFilterChip(
+                    selected = filter == InstalledFilter.NOT_IN_REPO,
+                    onClick = { filter = InstalledFilter.NOT_IN_REPO },
+                    label = "Not in repo",
+                    count = notInRepoCount,
                 )
             }
 
@@ -143,11 +159,26 @@ fun InstalledScreen(
                         item(key = "empty") {
                             EmptyState(
                                 icon = Icons.Outlined.Apps,
-                                title = if (updatesOnly) "Nothing to update" else "No installed modules found",
-                                body = if (updatesOnly) {
-                                    "All installed modules are on their latest version."
+                                title = if (installed.isEmpty()) {
+                                    "No installed modules found"
                                 } else {
+                                    when (filter) {
+                                        InstalledFilter.UPDATES -> "Nothing to update"
+                                        InstalledFilter.NOT_IN_REPO -> "All modules are in the repository"
+                                        InstalledFilter.ALL -> "No installed modules found"
+                                    }
+                                },
+                                body = if (installed.isEmpty()) {
                                     "Install modules from the Modules tab, then enable them in LSPosed."
+                                } else {
+                                    when (filter) {
+                                        InstalledFilter.UPDATES ->
+                                            "All installed modules are on their latest version."
+                                        InstalledFilter.NOT_IN_REPO ->
+                                            "Every installed module has an entry in the daily index."
+                                        InstalledFilter.ALL ->
+                                            "Install modules from the Modules tab, then enable them in LSPosed."
+                                    }
                                 },
                             )
                         }
