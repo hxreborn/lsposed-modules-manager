@@ -96,3 +96,7 @@ app/src/main/java/com/rushi/modulesmanager/
   with a different key than the installed app are rejected before the installer opens.
 - Modules Manager does not check module safety beyond package identity and signing keys. Treat
   modules like any other sideloaded APK.
+
+## License
+
+Modules Manager is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
