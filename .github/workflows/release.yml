@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build debug and signed release
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon
+
+      - name: Verify release signature
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
+
+      - name: Prepare release files
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cp app/build/outputs/apk/debug/app-debug.apk "ModulesManager-${TAG}-debug.apk"
+          cp app/build/outputs/apk/release/app-release.apk "ModulesManager-${TAG}-release.apk"
+          PREVIOUS=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
+          if [ -n "$PREVIOUS" ]; then RANGE="${PREVIOUS}..HEAD"; else RANGE="HEAD"; fi
+          {
+            echo "## Changes"
+            git log --pretty=format:'- %s (`%h`)' "$RANGE"
+            echo
+            echo
+            echo "## Downloads"
+            echo "- \`ModulesManager-${TAG}-release.apk\`: signed release build"
+            echo "- \`ModulesManager-${TAG}-debug.apk\`: debug build"
+          } > release-notes.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Modules Manager ${TAG}" --notes-file release-notes.md
+            gh release upload "$TAG" "ModulesManager-${TAG}-debug.apk" "ModulesManager-${TAG}-release.apk" --clobber
+          else
+            gh release create "$TAG" \
+              "ModulesManager-${TAG}-debug.apk" \
+              "ModulesManager-${TAG}-release.apk" \
+              --title "Modules Manager ${TAG}" \
+              --notes-file release-notes.md
+          fi
