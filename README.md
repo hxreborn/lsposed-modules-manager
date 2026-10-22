@@ -24,6 +24,11 @@ happens in LSPosed.
 - Downloads in the background with a progress banner, then verifies that the APK is for the
   expected package, is not older than the installed version, and is signed with the same key
   before handing it to the system installer.
+- Installer choice in Settings: open the APK in the system package installer, use a
+  `PackageInstaller` session, or install silently through Shizuku (Shizuku must be running and
+  the permission granted). Android still shows its confirmation dialog for the first two, since a
+  normal app cannot skip it with `setRequireUserAction`; only a privileged installer such as the
+  shell can.
 - Installed screen lists modules from the index that are installed, including packages that do not
   declare Xposed metadata, and shows which have updates. Its count matches the Installed filter on
   the Modules screen.
@@ -68,7 +73,9 @@ app/src/main/java/com/rushi/modulesmanager/
   data/LiveReleaseApi.kt     GitHub latest-release checks for installed modules
   data/Settings.kt           Channel, sort and live-check preferences
   data/InstalledModules.kt   Installed package and Xposed module detection
-  data/ApkInstaller.kt       PackageInstaller session and result handling
+  data/ApkInstaller.kt       System installer intent and PackageInstaller session handling
+  data/InstallerType.kt      Installer choice stored in Settings
+  data/ShizukuInstaller.kt   Shizuku permission flow and silent `pm install`
   data/ApkInspector.kt       Package/signature verification of downloaded APKs
   ui/                        Compose screens and components
 ```

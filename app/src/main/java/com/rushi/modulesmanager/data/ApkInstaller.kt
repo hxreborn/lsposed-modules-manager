@@ -8,6 +8,7 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,17 @@ object ApkInstaller {
         runCatching { context.startActivity(intent) }
     }
 
-    fun install(context: Context, apk: File, onResult: (status: Int, message: String?) -> Unit) {
+    /** Opens the APK in the system package installer. */
+    fun installSystem(context: Context, apk: File): Boolean {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    /** Streams the APK into a PackageInstaller session and lets the system confirm it. */
+    fun installSession(context: Context, apk: File, onResult: (status: Int, message: String?) -> Unit) {
         val appContext = context.applicationContext
         var receiver: BroadcastReceiver? = null
         try {

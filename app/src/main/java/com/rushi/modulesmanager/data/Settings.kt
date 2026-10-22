@@ -14,6 +14,9 @@ class Settings(context: Context) {
     private val _sortMode = MutableStateFlow(SortMode.fromKey(prefs.getString(KEY_SORT, null)))
     val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
 
+    private val _installer = MutableStateFlow(InstallerType.fromKey(prefs.getString(KEY_INSTALLER, null)))
+    val installer: StateFlow<InstallerType> = _installer.asStateFlow()
+
     private val _updatesFirst = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_FIRST, true))
     val updatesFirst: StateFlow<Boolean> = _updatesFirst.asStateFlow()
 
@@ -25,6 +28,11 @@ class Settings(context: Context) {
     fun setSortMode(mode: SortMode) {
         prefs.edit().putString(KEY_SORT, mode.key).apply()
         _sortMode.value = mode
+    }
+
+    fun setInstaller(installer: InstallerType) {
+        prefs.edit().putString(KEY_INSTALLER, installer.key).apply()
+        _installer.value = installer
     }
 
     fun setUpdatesFirst(enabled: Boolean) {
@@ -41,6 +49,7 @@ class Settings(context: Context) {
     private companion object {
         const val KEY_CHANNEL = "update_channel"
         const val KEY_SORT = "sort_mode"
+        const val KEY_INSTALLER = "installer_type"
         const val KEY_UPDATES_FIRST = "updates_first"
         const val KEY_LAST_LIVE_CHECK = "last_live_check"
     }

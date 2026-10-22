@@ -1,5 +1,6 @@
 package com.rushi.modulesmanager
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
@@ -14,10 +15,12 @@ import com.rushi.modulesmanager.data.DefaultSources
 import com.rushi.modulesmanager.data.DownloadCenter
 import com.rushi.modulesmanager.data.InstalledModule
 import com.rushi.modulesmanager.data.InstalledPackageVersion
+import com.rushi.modulesmanager.data.InstallerType
 import com.rushi.modulesmanager.data.LiveUpdateRateLimitException
 import com.rushi.modulesmanager.data.ModuleVersion
 import com.rushi.modulesmanager.data.RepoAsset
 import com.rushi.modulesmanager.data.RepoModule
+import com.rushi.modulesmanager.data.ShizukuInstaller
 import com.rushi.modulesmanager.data.SortMode
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.data.userMessage
@@ -60,6 +63,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     val channel: StateFlow<UpdateChannel> = settings.channel
     val sortMode: StateFlow<SortMode> = settings.sortMode
+    val installer: StateFlow<InstallerType> = settings.installer
     val updatesFirst: StateFlow<Boolean> = settings.updatesFirst
 
     val modules: StateFlow<List<RepoModule>> = container.repo.modules
@@ -300,6 +304,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         settings.setSortMode(mode)
     }
 
+    fun setInstaller(installer: InstallerType) {
+        settings.setInstaller(installer)
+    }
+
     fun setUpdatesFirst(enabled: Boolean) {
         settings.setUpdatesFirst(enabled)
     }
@@ -339,7 +347,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             return
         }
         val appContext = container.appContext
-        if (!ApkInstaller.canInstall(appContext)) {
+        val installerType = settings.installer.value
+        if (installerType != InstallerType.SHIZUKU && !ApkInstaller.canInstall(appContext)) {
             message("Allow \"Install unknown apps\" for Modules Manager, then try again")
             ApkInstaller.openInstallPermissionSettings(appContext)
             return
@@ -392,15 +401,41 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 }
 
                 container.downloads.phase(DownloadCenter.Phase.INSTALLING)
-                ApkInstaller.install(appContext, file) { status, reason ->
-                    if (status == PackageInstaller.STATUS_SUCCESS) {
-                        message("${module.displayName} installed")
-                        rescan()
-                    } else {
-                        message(installFailureMessage(status, reason))
+                when (installerType) {
+                    InstallerType.SYSTEM -> {
+                        val launched = ApkInstaller.installSystem(appContext, file)
+                        container.downloads.update(null)
+                        if (launched) {
+                            message("Opening the system installer")
+                        } else {
+                            message("Could not open a system installer")
+                            file.delete()
+                        }
                     }
-                    container.downloads.update(null)
-                    file.delete()
+                    InstallerType.SESSION -> runSessionInstall(appContext, file, module)
+                    InstallerType.SHIZUKU -> {
+                        if (ShizukuInstaller.ensurePermission()) {
+                            val problem = ShizukuInstaller.install(file)
+                            container.downloads.update(null)
+                            if (problem == null) {
+                                message("${module.displayName} installed")
+                                rescan()
+                            } else {
+                                message(problem)
+                            }
+                            file.delete()
+                        } else {
+                            message("Shizuku is unavailable, using the system installer")
+                            if (ApkInstaller.canInstall(appContext)) {
+                                runSessionInstall(appContext, file, module)
+                            } else {
+                                container.downloads.update(null)
+                                file.delete()
+                                message("Allow unknown apps for Modules Manager, then try again")
+                                ApkInstaller.openInstallPermissionSettings(appContext)
+                            }
+                        }
+                    }
                 }
             } catch (e: CancellationException) {
                 container.downloads.update(null)
@@ -450,6 +485,19 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                 Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }.onFailure { message("No app can open this link") }
+    }
+
+    private fun runSessionInstall(appContext: Context, file: File, module: RepoModule) {
+        ApkInstaller.installSession(appContext, file) { status, reason ->
+            if (status == PackageInstaller.STATUS_SUCCESS) {
+                message("${module.displayName} installed")
+                rescan()
+            } else {
+                message(installFailureMessage(status, reason))
+            }
+            container.downloads.update(null)
+            file.delete()
+        }
     }
 
     private fun installFailureMessage(status: Int, reason: String?): String = when (status) {

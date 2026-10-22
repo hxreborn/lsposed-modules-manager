@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -40,14 +41,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.BuildConfig
+import com.rushi.modulesmanager.data.InstallerType
 import com.rushi.modulesmanager.data.UpdateChannel
 import com.rushi.modulesmanager.ui.components.HeaderDivider
 
 @Composable
 fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
+    val installer by viewModel.installer.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
+    var showInstallerDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -76,6 +80,12 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 title = "Update channel",
                 subtitle = "${channel.label} - ${channel.description}",
                 onClick = { showChannelDialog = true },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.InstallMobile,
+                title = "Installer",
+                subtitle = "${installer.label} - ${installer.description}",
+                onClick = { showInstallerDialog = true },
             )
             SettingsRow(
                 icon = Icons.Outlined.Refresh,
@@ -139,6 +149,48 @@ fun SettingsScreen(viewModel: AppViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = { showChannelDialog = false }) { Text("Close") }
+            },
+        )
+    }
+
+    if (showInstallerDialog) {
+        AlertDialog(
+            onDismissRequest = { showInstallerDialog = false },
+            title = { Text("Installer") },
+            text = {
+                Column {
+                    InstallerType.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setInstaller(option)
+                                    showInstallerDialog = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = installer == option,
+                                onClick = {
+                                    viewModel.setInstaller(option)
+                                    showInstallerDialog = false
+                                },
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = option.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInstallerDialog = false }) { Text("Close") }
             },
         )
     }
