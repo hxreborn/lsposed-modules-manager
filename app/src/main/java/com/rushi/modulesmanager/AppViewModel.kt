@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.rushi.modulesmanager.data.ApkInspector
 import com.rushi.modulesmanager.data.ApkInstaller
+import com.rushi.modulesmanager.data.AppTheme
 import com.rushi.modulesmanager.data.DefaultSources
 import com.rushi.modulesmanager.data.DownloadCenter
 import com.rushi.modulesmanager.data.InstalledModule
@@ -65,6 +66,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val channel: StateFlow<UpdateChannel> = settings.channel
     val sortMode: StateFlow<SortMode> = settings.sortMode
     val installer: StateFlow<InstallerType> = settings.installer
+    val theme: StateFlow<AppTheme> = settings.theme
+    val amoled: StateFlow<Boolean> = settings.amoled
     val updatesFirst: StateFlow<Boolean> = settings.updatesFirst
 
     private val _shizukuStatus = MutableStateFlow(ShizukuInstaller.status())
@@ -375,6 +378,14 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setUpdatesFirst(enabled: Boolean) {
         settings.setUpdatesFirst(enabled)
+    }
+
+    fun setTheme(theme: AppTheme) {
+        settings.setTheme(theme)
+    }
+
+    fun setAmoled(enabled: Boolean) {
+        settings.setAmoled(enabled)
     }
 
     fun openModule(packageName: String) {

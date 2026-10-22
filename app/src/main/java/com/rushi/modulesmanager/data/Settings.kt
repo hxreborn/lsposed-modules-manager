@@ -17,6 +17,12 @@ class Settings(context: Context) {
     private val _installer = MutableStateFlow(InstallerType.fromKey(prefs.getString(KEY_INSTALLER, null)))
     val installer: StateFlow<InstallerType> = _installer.asStateFlow()
 
+    private val _theme = MutableStateFlow(AppTheme.fromKey(prefs.getString(KEY_THEME, null)))
+    val theme: StateFlow<AppTheme> = _theme.asStateFlow()
+
+    private val _amoled = MutableStateFlow(prefs.getBoolean(KEY_AMOLED, false))
+    val amoled: StateFlow<Boolean> = _amoled.asStateFlow()
+
     private val _updatesFirst = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_FIRST, true))
     val updatesFirst: StateFlow<Boolean> = _updatesFirst.asStateFlow()
 
@@ -40,6 +46,16 @@ class Settings(context: Context) {
         _updatesFirst.value = enabled
     }
 
+    fun setTheme(theme: AppTheme) {
+        prefs.edit().putString(KEY_THEME, theme.key).apply()
+        _theme.value = theme
+    }
+
+    fun setAmoled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AMOLED, enabled).apply()
+        _amoled.value = enabled
+    }
+
     fun lastLiveCheck(): Long = prefs.getLong(KEY_LAST_LIVE_CHECK, 0L)
 
     fun setLastLiveCheck(time: Long) {
@@ -50,6 +66,8 @@ class Settings(context: Context) {
         const val KEY_CHANNEL = "update_channel"
         const val KEY_SORT = "sort_mode"
         const val KEY_INSTALLER = "installer_type"
+        const val KEY_THEME = "app_theme"
+        const val KEY_AMOLED = "amoled_mode"
         const val KEY_UPDATES_FIRST = "updates_first"
         const val KEY_LAST_LIVE_CHECK = "last_live_check"
     }

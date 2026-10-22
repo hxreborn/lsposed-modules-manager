@@ -1,5 +1,8 @@
 package com.rushi.modulesmanager.ui.theme
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -8,8 +11,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF00696E),
@@ -67,13 +73,34 @@ private val DarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
+// Pitch black surfaces for people who want OLED pixels fully off.
+private val AmoledColors = DarkColors.copy(
+    background = Color.Black,
+    onBackground = Color(0xFFE3E3E3),
+    surface = Color.Black,
+    onSurface = Color(0xFFE3E3E3),
+    surfaceVariant = Color(0xFF1C1C1C),
+    onSurfaceVariant = Color(0xFFC6C6C6),
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = Color(0xFF070707),
+    surfaceContainer = Color(0xFF0D0D0D),
+    surfaceContainerHigh = Color(0xFF151515),
+    surfaceContainerHighest = Color(0xFF1E1E1E),
+    surfaceDim = Color.Black,
+    surfaceBright = Color(0xFF2C2C2C),
+    outline = Color(0xFF8A8A8A),
+    outlineVariant = Color(0xFF2A2A2A),
+)
+
 @Composable
 fun ModulesManagerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    amoled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
+        darkTheme && amoled -> AmoledColors
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -81,5 +108,19 @@ fun ModulesManagerTheme(
         darkTheme -> DarkColors
         else -> LightColors
     }
+    val view = LocalView.current
+    SideEffect {
+        val activity = view.context.findActivity() ?: return@SideEffect
+        WindowCompat.getInsetsController(activity.window, view).apply {
+            isAppearanceLightStatusBars = !darkTheme
+            isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
     MaterialTheme(colorScheme = colorScheme, content = content)
+}
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

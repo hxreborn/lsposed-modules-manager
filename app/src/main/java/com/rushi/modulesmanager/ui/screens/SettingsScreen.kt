@@ -15,10 +15,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.LocalCafe
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rushi.modulesmanager.AppViewModel
 import com.rushi.modulesmanager.BuildConfig
+import com.rushi.modulesmanager.data.AppTheme
 import com.rushi.modulesmanager.data.InstallerType
 import com.rushi.modulesmanager.data.ShizukuInstaller
 import com.rushi.modulesmanager.data.UpdateChannel
@@ -53,9 +57,12 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val installer by viewModel.installer.collectAsStateWithLifecycle()
     val shizukuStatus by viewModel.shizukuStatus.collectAsStateWithLifecycle()
+    val theme by viewModel.theme.collectAsStateWithLifecycle()
+    val amoled by viewModel.amoled.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
     var showInstallerDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(showInstallerDialog) {
         if (showInstallerDialog) viewModel.refreshShizukuStatus()
@@ -82,6 +89,22 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp),
         ) {
+            SectionTitle("Appearance")
+            SettingsRow(
+                icon = Icons.Outlined.Palette,
+                title = "Theme",
+                subtitle = "${theme.label} - ${theme.description}",
+                onClick = { showThemeDialog = true },
+            )
+            SettingsSwitchRow(
+                icon = Icons.Outlined.DarkMode,
+                title = "AMOLED mode",
+                subtitle = "Pitch black backgrounds when the dark theme is active",
+                checked = amoled,
+                onCheckedChange = viewModel::setAmoled,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionTitle("Updates")
             SettingsRow(
                 icon = Icons.Outlined.Download,
@@ -163,6 +186,48 @@ fun SettingsScreen(viewModel: AppViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = { showChannelDialog = false }) { Text("Close") }
+            },
+        )
+    }
+
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = { Text("Theme") },
+            text = {
+                Column {
+                    AppTheme.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setTheme(option)
+                                    showThemeDialog = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = theme == option,
+                                onClick = {
+                                    viewModel.setTheme(option)
+                                    showThemeDialog = false
+                                },
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = option.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) { Text("Close") }
             },
         )
     }
@@ -263,6 +328,40 @@ private fun SectionTitle(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
     )
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
 }
 
 @Composable

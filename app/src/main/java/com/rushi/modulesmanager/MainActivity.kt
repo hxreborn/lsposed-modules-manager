@@ -4,7 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rushi.modulesmanager.data.AppTheme
 import com.rushi.modulesmanager.ui.AppRoot
 import com.rushi.modulesmanager.ui.theme.ModulesManagerTheme
 
@@ -14,7 +18,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as ModulesManagerApplication).container
         setContent {
-            ModulesManagerTheme {
+            val systemDark = isSystemInDarkTheme()
+            val theme by container.settings.theme.collectAsStateWithLifecycle()
+            val amoled by container.settings.amoled.collectAsStateWithLifecycle()
+            val darkTheme = when (theme) {
+                AppTheme.SYSTEM -> systemDark
+                AppTheme.LIGHT -> false
+                AppTheme.DARK -> true
+            }
+            ModulesManagerTheme(darkTheme = darkTheme, amoled = amoled) {
                 val viewModel: AppViewModel = viewModel(factory = AppViewModel.factory(container))
                 AppRoot(viewModel)
             }
