@@ -58,6 +58,7 @@ import com.rushi.modulesmanager.ui.components.InstalledAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.StatusPill
 import com.rushi.modulesmanager.ui.components.VerticalScrollbar
+import com.rushi.modulesmanager.ui.components.shortVersion
 import kotlinx.coroutines.launch
 
 private enum class InstalledFilter { ALL, UPDATES, NOT_IN_REPO }
@@ -292,7 +293,7 @@ private fun InstalledCard(
                     Spacer(Modifier.width(8.dp))
                     when {
                         update != null -> StatusPill(
-                            text = "Update ${update.version.name}",
+                            text = "Update ${shortVersion(update.version.name)}",
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )

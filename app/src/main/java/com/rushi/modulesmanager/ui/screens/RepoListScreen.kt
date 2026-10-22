@@ -74,6 +74,7 @@ import com.rushi.modulesmanager.ui.components.ModuleAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.StatusPill
 import com.rushi.modulesmanager.ui.components.VerticalScrollbar
+import com.rushi.modulesmanager.ui.components.shortVersion
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -390,22 +391,22 @@ private fun ModuleCard(
                         when {
                             update != null -> {
                                 StatusPill(
-                                    text = "Update ${update.version.name}",
+                                    text = "Update ${shortVersion(update.version.name)}",
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                                 StatusPill(
-                                    text = "Installed ${update.installed.versionName.orEmpty()}".trim(),
+                                    text = "Installed ${shortVersion(update.installed.versionName)}".trim(),
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
                             }
                             installed != null -> StatusPill(
-                                text = "Installed ${installed.versionName.orEmpty()}".trim(),
+                                text = "Installed ${shortVersion(installed.versionName)}".trim(),
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             )
-                            latest != null -> StatusPill(text = "v${latest.name}")
+                            latest != null -> StatusPill(text = "v${shortVersion(latest.name)}")
                         }
                     }
                     val date = formatDate(module.latestTime(channel) ?: module.updatedAt)

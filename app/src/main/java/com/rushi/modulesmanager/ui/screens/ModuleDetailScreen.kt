@@ -89,6 +89,7 @@ import com.rushi.modulesmanager.ui.components.LoadingState
 import com.rushi.modulesmanager.ui.components.ModuleAvatar
 import com.rushi.modulesmanager.ui.components.PackageLabel
 import com.rushi.modulesmanager.ui.components.StatusPill
+import com.rushi.modulesmanager.ui.components.shortVersion
 
 private val tabs = listOf("Overview", "Releases", "Information")
 
@@ -327,19 +328,19 @@ private fun DetailHeader(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
                         hasUpdate -> StatusPill(
-                            text = "Update ${updateVersion.name}",
+                            text = "Update ${shortVersion(updateVersion.name)}",
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                         isInstalled -> StatusPill(
-                            text = "Installed ${installedVersion.orEmpty()}".trim(),
+                            text = "Installed ${shortVersion(installedVersion)}".trim(),
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
-                        latest != null -> StatusPill(text = "Latest ${latest.name}")
+                        latest != null -> StatusPill(text = "Latest ${shortVersion(latest.name)}")
                     }
                     if (isInstalled && hasUpdate) {
-                        StatusPill(text = "Installed ${installedVersion.orEmpty()}".trim())
+                        StatusPill(text = "Installed ${shortVersion(installedVersion)}".trim())
                     }
                 }
             }

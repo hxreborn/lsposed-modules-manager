@@ -140,6 +140,15 @@ fun HeaderDivider() {
     )
 }
 
+private val VERSION_NUMBER = Regex("""\d+(?:\.\d+)*""")
+
+/** The numeric part of a version, for chips: "v1.0.4-diagnostic" becomes "1.0.4". */
+fun shortVersion(version: String?): String {
+    val value = version?.trim().orEmpty()
+    if (value.isEmpty()) return value
+    return VERSION_NUMBER.find(value)?.value ?: value.take(12)
+}
+
 @Composable
 fun StatusPill(
     text: String,
