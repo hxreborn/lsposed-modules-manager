@@ -111,6 +111,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private var shizukuPermissionJob: Job? = null
     private var installedRebuildJob: Job? = null
     private var liveCheckJob: Job? = null
+    private var liveCheckAttempted = false
     private var discoveryJob: Job? = null
     private val discoveryAttempted = mutableSetOf<String>()
     private var detectedModules: List<InstalledModule> = emptyList()
@@ -145,7 +146,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         }
         viewModelScope.launch {
             repoInstalled.collectLatest { installed ->
-                if (installed.isNotEmpty()) refreshLiveUpdates()
+                // The live releases are held in memory, so a fresh process has to check once even
+                // when the saved timestamp is still inside the six-hour window.
+                if (installed.isNotEmpty()) refreshLiveUpdates(force = !liveCheckAttempted)
             }
         }
     }
@@ -278,7 +281,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         if (!force && now - settings.lastLiveCheck() < LIVE_UPDATE_INTERVAL_MS) return
         val installed = repoInstalled.value
         if (installed.isEmpty()) return
-        settings.setLastLiveCheck(now)
+        liveCheckAttempted = true
 
         liveCheckJob = viewModelScope.launch {
             val repoModules = container.repo.modules.value.associateBy { it.packageName }
@@ -325,6 +328,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
                     }
                 }.awaitAll()
             }
+            // A rate-limited run is incomplete: keep the timestamp stale so it runs again.
+            if (stopped.get()) liveCheckAttempted = false else settings.setLastLiveCheck(now)
         }
     }
 
