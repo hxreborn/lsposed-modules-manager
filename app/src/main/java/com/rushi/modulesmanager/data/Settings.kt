@@ -23,6 +23,9 @@ class Settings(context: Context) {
     private val _amoled = MutableStateFlow(prefs.getBoolean(KEY_AMOLED, false))
     val amoled: StateFlow<Boolean> = _amoled.asStateFlow()
 
+    private val _systemColors = MutableStateFlow(prefs.getBoolean(KEY_SYSTEM_COLORS, true))
+    val systemColors: StateFlow<Boolean> = _systemColors.asStateFlow()
+
     private val _updatesFirst = MutableStateFlow(prefs.getBoolean(KEY_UPDATES_FIRST, true))
     val updatesFirst: StateFlow<Boolean> = _updatesFirst.asStateFlow()
 
@@ -56,6 +59,11 @@ class Settings(context: Context) {
         _amoled.value = enabled
     }
 
+    fun setSystemColors(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SYSTEM_COLORS, enabled).apply()
+        _systemColors.value = enabled
+    }
+
     fun lastLiveCheck(): Long = prefs.getLong(KEY_LAST_LIVE_CHECK, 0L)
 
     fun setLastLiveCheck(time: Long) {
@@ -68,6 +76,7 @@ class Settings(context: Context) {
         const val KEY_INSTALLER = "installer_type"
         const val KEY_THEME = "app_theme"
         const val KEY_AMOLED = "amoled_mode"
+        const val KEY_SYSTEM_COLORS = "system_colors"
         const val KEY_UPDATES_FIRST = "updates_first"
         const val KEY_LAST_LIVE_CHECK = "last_live_check"
     }

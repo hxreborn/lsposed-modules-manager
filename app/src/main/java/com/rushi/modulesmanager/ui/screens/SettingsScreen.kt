@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Info
@@ -59,6 +60,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
     val shizukuStatus by viewModel.shizukuStatus.collectAsStateWithLifecycle()
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val amoled by viewModel.amoled.collectAsStateWithLifecycle()
+    val systemColors by viewModel.systemColors.collectAsStateWithLifecycle()
 
     var showChannelDialog by remember { mutableStateOf(false) }
     var showInstallerDialog by remember { mutableStateOf(false) }
@@ -95,6 +97,13 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 title = "Theme",
                 subtitle = "${theme.label} - ${theme.description}",
                 onClick = { showThemeDialog = true },
+            )
+            SettingsSwitchRow(
+                icon = Icons.Outlined.ColorLens,
+                title = "System colors",
+                subtitle = "Use Material You colors from the wallpaper on Android 12+",
+                checked = systemColors,
+                onCheckedChange = viewModel::setSystemColors,
             )
             SettingsSwitchRow(
                 icon = Icons.Outlined.DarkMode,

@@ -68,6 +68,7 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val installer: StateFlow<InstallerType> = settings.installer
     val theme: StateFlow<AppTheme> = settings.theme
     val amoled: StateFlow<Boolean> = settings.amoled
+    val systemColors: StateFlow<Boolean> = settings.systemColors
     val updatesFirst: StateFlow<Boolean> = settings.updatesFirst
 
     private val _shizukuStatus = MutableStateFlow(ShizukuInstaller.status())
@@ -386,6 +387,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setAmoled(enabled: Boolean) {
         settings.setAmoled(enabled)
+    }
+
+    fun setSystemColors(enabled: Boolean) {
+        settings.setSystemColors(enabled)
     }
 
     fun openModule(packageName: String) {

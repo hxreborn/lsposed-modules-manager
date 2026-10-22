@@ -21,12 +21,17 @@ class MainActivity : ComponentActivity() {
             val systemDark = isSystemInDarkTheme()
             val theme by container.settings.theme.collectAsStateWithLifecycle()
             val amoled by container.settings.amoled.collectAsStateWithLifecycle()
+            val systemColors by container.settings.systemColors.collectAsStateWithLifecycle()
             val darkTheme = when (theme) {
                 AppTheme.SYSTEM -> systemDark
                 AppTheme.LIGHT -> false
                 AppTheme.DARK -> true
             }
-            ModulesManagerTheme(darkTheme = darkTheme, amoled = amoled) {
+            ModulesManagerTheme(
+                darkTheme = darkTheme,
+                dynamicColor = systemColors,
+                amoled = amoled,
+            ) {
                 val viewModel: AppViewModel = viewModel(factory = AppViewModel.factory(container))
                 AppRoot(viewModel)
             }
