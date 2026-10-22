@@ -31,7 +31,7 @@ jobs:
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-37" "build-tools;37.0.0"
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Decode release keystore
         env:
