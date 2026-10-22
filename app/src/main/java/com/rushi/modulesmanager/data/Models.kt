@@ -10,11 +10,13 @@ import java.util.Locale
 
 enum class UpdateChannel(val key: String, val label: String, val description: String) {
     STABLE("stable", "Stable", "Released versions only"),
-    BETA("beta", "Beta", "Pre-releases included, snapshots skipped"),
-    SNAPSHOT("snapshot", "Snapshot", "Newest builds, including snapshots");
+    PRE_RELEASE("prerelease", "Pre-release", "Include pre-release builds");
 
     companion object {
-        fun fromKey(key: String?): UpdateChannel = entries.firstOrNull { it.key == key } ?: STABLE
+        fun fromKey(key: String?): UpdateChannel = when (key) {
+            "prerelease", "beta", "snapshot" -> PRE_RELEASE
+            else -> STABLE
+        }
     }
 }
 
@@ -57,8 +59,7 @@ data class RepoRelease(
 
     fun supports(channel: UpdateChannel): Boolean = when (channel) {
         UpdateChannel.STABLE -> !isPrerelease && !isSnapshot
-        UpdateChannel.BETA -> !isSnapshot
-        UpdateChannel.SNAPSHOT -> true
+        UpdateChannel.PRE_RELEASE -> true
     }
 }
 
@@ -95,23 +96,19 @@ data class RepoModule(
 
     fun latest(channel: UpdateChannel): ModuleVersion? = when (channel) {
         UpdateChannel.STABLE -> ModuleVersion.parse(latestRelease)
-        UpdateChannel.BETA -> ModuleVersion.parse(latestBetaRelease) ?: ModuleVersion.parse(latestRelease)
-        UpdateChannel.SNAPSHOT -> ModuleVersion.parse(latestSnapshotRelease)
-            ?: ModuleVersion.parse(latestBetaRelease)
-            ?: ModuleVersion.parse(latestRelease)
+        UpdateChannel.PRE_RELEASE ->
+            ModuleVersion.parse(latestBetaRelease) ?: ModuleVersion.parse(latestRelease)
     }
 
     fun latestTime(channel: UpdateChannel): String? = when (channel) {
         UpdateChannel.STABLE -> latestReleaseTime
-        UpdateChannel.BETA -> latestBetaReleaseTime ?: latestReleaseTime
-        UpdateChannel.SNAPSHOT -> latestSnapshotReleaseTime ?: latestBetaReleaseTime ?: latestReleaseTime
+        UpdateChannel.PRE_RELEASE -> latestBetaReleaseTime ?: latestReleaseTime
     }
 
     fun releasesFor(channel: UpdateChannel): List<RepoRelease> {
         val pool = when (channel) {
             UpdateChannel.STABLE -> releases
-            UpdateChannel.BETA -> betaReleases.ifEmpty { releases }
-            UpdateChannel.SNAPSHOT -> snapshotReleases.ifEmpty { betaReleases.ifEmpty { releases } }
+            UpdateChannel.PRE_RELEASE -> betaReleases.ifEmpty { releases }
         }
         val filtered = pool.filter { it.supports(channel) }
         return filtered.ifEmpty { pool }
