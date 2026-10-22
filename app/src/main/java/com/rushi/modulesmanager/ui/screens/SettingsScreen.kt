@@ -102,7 +102,7 @@ fun SettingsScreen(viewModel: AppViewModel) {
             SettingsSwitchRow(
                 icon = Icons.Outlined.ColorLens,
                 title = "System colors",
-                subtitle = "Use Material You colors from the wallpaper on Android 12+",
+                subtitle = "Material You colors on Android 12+",
                 checked = systemColors,
                 onCheckedChange = viewModel::setSystemColors,
             )
@@ -118,19 +118,18 @@ fun SettingsScreen(viewModel: AppViewModel) {
             SettingsRow(
                 icon = Icons.Outlined.Refresh,
                 title = "Check for updates",
-                subtitle = "Refresh the repository and rescan installed modules",
                 onClick = viewModel::refresh,
             )
             SettingsRow(
                 icon = Icons.Outlined.InstallMobile,
                 title = "Installer",
-                subtitle = "${installer.label} - ${installer.description}",
+                subtitle = installer.label,
                 onClick = { showInstallerDialog = true },
             )
             SettingsRow(
                 icon = Icons.Outlined.Download,
                 title = "Update channel",
-                subtitle = "${channel.label} - ${channel.description}",
+                subtitle = channel.label,
                 onClick = { showChannelDialog = true },
             )
 
@@ -369,6 +368,7 @@ private fun SettingsSwitchRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.width(20.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -377,7 +377,7 @@ private fun SettingsSwitchRow(
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -396,11 +396,13 @@ private fun SettingsRow(
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            subtitle?.let { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         if (onClick != null) {
             Icon(
