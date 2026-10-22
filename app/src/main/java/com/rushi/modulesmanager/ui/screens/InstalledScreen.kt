@@ -291,21 +291,11 @@ private fun InstalledCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     when {
-                        update != null -> Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            StatusPill(
-                                text = "Update ${update.version.name}",
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                            StatusPill(
-                                text = "Installed ${module.versionName ?: module.versionCode}",
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
+                        update != null -> StatusPill(
+                            text = "Update ${update.version.name}",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                         repoModule != null -> StatusPill(
                             text = "Up to date",
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
