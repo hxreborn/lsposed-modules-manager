@@ -92,11 +92,12 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 .padding(bottom = 32.dp),
         ) {
             SectionTitle("Appearance")
-            SettingsRow(
-                icon = Icons.Outlined.Palette,
-                title = "Theme",
-                subtitle = "${theme.label} - ${theme.description}",
-                onClick = { showThemeDialog = true },
+            SettingsSwitchRow(
+                icon = Icons.Outlined.DarkMode,
+                title = "AMOLED mode",
+                subtitle = "Pitch black backgrounds when the dark theme is active",
+                checked = amoled,
+                onCheckedChange = viewModel::setAmoled,
             )
             SettingsSwitchRow(
                 icon = Icons.Outlined.ColorLens,
@@ -105,21 +106,20 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 checked = systemColors,
                 onCheckedChange = viewModel::setSystemColors,
             )
-            SettingsSwitchRow(
-                icon = Icons.Outlined.DarkMode,
-                title = "AMOLED mode",
-                subtitle = "Pitch black backgrounds when the dark theme is active",
-                checked = amoled,
-                onCheckedChange = viewModel::setAmoled,
+            SettingsRow(
+                icon = Icons.Outlined.Palette,
+                title = "Theme",
+                subtitle = "${theme.label} - ${theme.description}",
+                onClick = { showThemeDialog = true },
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionTitle("Updates")
             SettingsRow(
-                icon = Icons.Outlined.Download,
-                title = "Update channel",
-                subtitle = "${channel.label} - ${channel.description}",
-                onClick = { showChannelDialog = true },
+                icon = Icons.Outlined.Refresh,
+                title = "Check for updates",
+                subtitle = "Refresh the repository and rescan installed modules",
+                onClick = viewModel::refresh,
             )
             SettingsRow(
                 icon = Icons.Outlined.InstallMobile,
@@ -128,14 +128,20 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 onClick = { showInstallerDialog = true },
             )
             SettingsRow(
-                icon = Icons.Outlined.Refresh,
-                title = "Check for updates",
-                subtitle = "Refresh the repository and rescan installed modules",
-                onClick = viewModel::refresh,
+                icon = Icons.Outlined.Download,
+                title = "Update channel",
+                subtitle = "${channel.label} - ${channel.description}",
+                onClick = { showChannelDialog = true },
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionTitle("About")
+            SettingsRow(
+                icon = Icons.Outlined.LocalCafe,
+                title = "Buy me a coffee",
+                subtitle = "buymeacoffee.com/rushiranpise",
+                onClick = { viewModel.openLink("https://buymeacoffee.com/rushiranpise") },
+            )
             SettingsRow(
                 icon = Icons.Outlined.Info,
                 title = "Modules Manager",
@@ -146,12 +152,6 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 title = "View on GitHub",
                 subtitle = "github.com/rushiranpise/lsposed-modules-manager",
                 onClick = { viewModel.openLink("https://github.com/rushiranpise/lsposed-modules-manager") },
-            )
-            SettingsRow(
-                icon = Icons.Outlined.LocalCafe,
-                title = "Buy me a coffee",
-                subtitle = "buymeacoffee.com/rushiranpise",
-                onClick = { viewModel.openLink("https://buymeacoffee.com/rushiranpise") },
             )
 
         }
