@@ -14,10 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.InstallMobile
+import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -109,10 +110,16 @@ fun SettingsScreen(viewModel: AppViewModel) {
                 subtitle = "Version ${BuildConfig.VERSION_NAME}",
             )
             SettingsRow(
-                icon = Icons.Outlined.Extension,
-                title = "LSPosed project",
-                subtitle = "github.com/LSPosed/LSPosed",
-                onClick = { viewModel.openLink("https://github.com/LSPosed/LSPosed") },
+                icon = Icons.Outlined.Code,
+                title = "View on GitHub",
+                subtitle = "github.com/rushiranpise/lsposed-modules-manager",
+                onClick = { viewModel.openLink("https://github.com/rushiranpise/lsposed-modules-manager") },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.LocalCafe,
+                title = "Buy me a coffee",
+                subtitle = "buymeacoffee.com/rushiranpise",
+                onClick = { viewModel.openLink("https://buymeacoffee.com/rushiranpise") },
             )
 
         }
