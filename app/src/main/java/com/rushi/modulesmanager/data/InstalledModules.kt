@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
+import java.util.zip.ZipFile
 
 data class InstalledModule(
     val packageName: String,
@@ -32,6 +33,7 @@ data class InstalledModulesResult(
 
 class InstalledModuleScanner(private val context: Context) {
     private val pm get() = context.packageManager
+    private val libxposedCache = HashMap<String, Boolean>()
 
     fun scan(): InstalledModulesResult {
         @Suppress("DEPRECATION")
@@ -48,15 +50,45 @@ class InstalledModuleScanner(private val context: Context) {
             versions[info.packageName] = InstalledPackageVersion(info.versionName, versionCode)
 
             if (info.packageName == context.packageName) continue
-            val meta = info.applicationInfo?.metaData ?: continue
-            val declared = meta.getBoolean("xposedmodule", false) || meta.containsKey("xposedminversion")
-            if (!declared) continue
+            if (!isXposedModule(info)) continue
             modules += toInstalledModule(info)
         }
         return InstalledModulesResult(
             modules = modules.sortedBy { it.label.lowercase() },
             versions = versions,
         )
+    }
+
+    /**
+     * Legacy modules declare themselves in the manifest. Modules built on the
+     * libxposed API keep their metadata inside the APK instead, at
+     * META-INF/xposed, so the manifest check alone misses them.
+     */
+    private fun isXposedModule(info: PackageInfo): Boolean {
+        val app = info.applicationInfo ?: return false
+        val meta = app.metaData
+        if (meta?.getBoolean("xposedmodule", false) == true || meta?.containsKey("xposedminversion") == true) {
+            return true
+        }
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        val key = "${info.packageName}:$versionCode:${info.lastUpdateTime}"
+        return libxposedCache.getOrPut(key) { hasLibxposedMetadata(app.sourceDir) }
+    }
+
+    private fun hasLibxposedMetadata(sourceDir: String?): Boolean {
+        if (sourceDir.isNullOrBlank()) return false
+        return runCatching {
+            ZipFile(sourceDir).use { zip ->
+                zip.getEntry("META-INF/xposed/module.prop") != null ||
+                    zip.getEntry("META-INF/xposed/java_init.list") != null ||
+                    zip.getEntry("assets/xposed_init") != null
+            }
+        }.getOrDefault(false)
     }
 
     /** Basic app data for any installed package, including modules without Xposed metadata. */
