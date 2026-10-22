@@ -562,6 +562,14 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Opens the system uninstaller for an installed module. */
+    fun uninstall(packageName: String) {
+        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { container.appContext.startActivity(intent) }
+            .onFailure { message("Could not open the uninstaller") }
+    }
+
     fun openLink(url: String?) {
         if (url.isNullOrBlank()) {
             message("No link available")

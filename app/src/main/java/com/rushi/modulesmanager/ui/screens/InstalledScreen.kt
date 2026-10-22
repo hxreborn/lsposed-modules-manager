@@ -1,5 +1,7 @@
 package com.rushi.modulesmanager.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -32,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -44,6 +48,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,6 +79,7 @@ fun InstalledScreen(
     val modules by viewModel.modules.collectAsStateWithLifecycle()
 
     var filter by rememberSaveable { mutableStateOf(InstalledFilter.ALL) }
+    var pendingUninstall by remember { mutableStateOf<InstalledModule?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -192,6 +199,7 @@ fun InstalledScreen(
                                 onOpenRepository = { onOpenModule(module.packageName) },
                                 onOpenApp = { viewModel.openInstalledModule(module.packageName) },
                                 onUpdate = { update -> viewModel.installLatest(update.module) },
+                                onUninstall = { pendingUninstall = module },
                             )
                         }
                     }
@@ -223,8 +231,30 @@ fun InstalledScreen(
             }
         }
     }
+
+    pendingUninstall?.let { module ->
+        AlertDialog(
+            onDismissRequest = { pendingUninstall = null },
+            title = { Text("Uninstall ${module.label}?") },
+            text = {
+                Text("This removes the app from the device. You can install it again from the Modules tab.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingUninstall = null
+                        viewModel.uninstall(module.packageName)
+                    },
+                ) { Text("Uninstall") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUninstall = null }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InstalledCard(
     module: InstalledModule,
@@ -233,15 +263,24 @@ private fun InstalledCard(
     onOpenRepository: () -> Unit,
     onOpenApp: () -> Unit,
     onUpdate: (ModuleUpdate) -> Unit,
+    onUninstall: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Card(
-        onClick = {
-            if (module.hasLauncher) onOpenApp()
-            else if (repoModule != null) onOpenRepository()
-        },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {
+                    if (module.hasLauncher) onOpenApp()
+                    else if (repoModule != null) onOpenRepository()
+                },
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onUninstall()
+                },
+            ),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
