@@ -29,9 +29,10 @@ happens in LSPosed.
   the permission granted). Android still shows its confirmation dialog for the first two, since a
   normal app cannot skip it with `setRequireUserAction`; only a privileged installer such as the
   shell can.
-- Installed screen lists modules from the index that are installed, including packages that do not
-  declare Xposed metadata, and shows which have updates. Its count matches the Installed filter on
-  the Modules screen.
+- Installed screen lists every installed Xposed module, including ones the index does not know
+  about, which are marked "Not in repository". Packages from the index that do not declare Xposed
+  metadata are included too, and modules with a newer release show an update button. The Modules
+  screen's Installed filter stays scoped to the index.
 - Material 3 UI with dynamic color, dark mode, centered filters, a draggable scrollbar and
   scroll-to-top control.
 
@@ -83,8 +84,9 @@ app/src/main/java/com/rushi/modulesmanager/
 ## Notes
 
 - Custom repositories and the repository picker were removed. The app uses the daily index only.
-- The Installed tab is scoped to the index. Modules installed from other sources are not listed
-  there, which keeps its count aligned with the repository filters.
+- The Installed tab shows every installed module, so its count can be higher than the Installed
+  filter on the Modules screen; that filter only counts index entries. Modules missing from the
+  index appear with a "Not in repository" pill and have no update information.
 - If an installed package is in the index but its release was not fetched by the collector, the
   app asks its `Xposed-Modules-Repo` GitHub mirror for the latest release and adds it. This keeps
   installed counts complete when the daily index has a missing release.

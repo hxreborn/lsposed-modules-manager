@@ -65,7 +65,7 @@ fun InstalledScreen(
     viewModel: AppViewModel,
     onOpenModule: (String) -> Unit,
 ) {
-    val installed by viewModel.repoInstalled.collectAsStateWithLifecycle()
+    val installed by viewModel.allInstalled.collectAsStateWithLifecycle()
     val updates by viewModel.updates.collectAsStateWithLifecycle()
     val modules by viewModel.modules.collectAsStateWithLifecycle()
 
@@ -145,7 +145,7 @@ fun InstalledScreen(
                                 icon = Icons.Outlined.Apps,
                                 title = if (updatesOnly) "Nothing to update" else "No installed modules found",
                                 body = if (updatesOnly) {
-                                    "All installed modules are on their latest version in this repository."
+                                    "All installed modules are on their latest version."
                                 } else {
                                     "Install modules from the Modules tab, then enable them in LSPosed."
                                 },

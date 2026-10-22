@@ -83,6 +83,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     private val _repoInstalled = MutableStateFlow<List<InstalledModule>>(emptyList())
     val repoInstalled: StateFlow<List<InstalledModule>> = _repoInstalled.asStateFlow()
 
+    /** Every installed Xposed module, including those the daily index does not list. */
+    private val _allInstalled = MutableStateFlow<List<InstalledModule>>(emptyList())
+    val allInstalled: StateFlow<List<InstalledModule>> = _allInstalled.asStateFlow()
+
     private val _installedVersions = MutableStateFlow<Map<String, InstalledPackageVersion>>(emptyMap())
     val installedVersions: StateFlow<Map<String, InstalledPackageVersion>> = _installedVersions.asStateFlow()
 
@@ -153,26 +157,38 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Combines Xposed-detected modules with repository packages installed without metadata. */
+    /**
+     * Combines Xposed-detected modules with repository packages installed without metadata.
+     * The repository list drives the Modules filter and update checks; the full list drives the
+     * Installed tab, which also shows modules the daily index does not know about.
+     */
     private fun rebuildRepoInstalled() {
         installedRebuildJob?.cancel()
         val repoPackages = modules.value.map { it.packageName }
         val versions = installedVersionMap
-        if (repoPackages.isEmpty() || versions.isEmpty()) {
+        val detected = detectedModules.associateBy { it.packageName }
+        if (versions.isEmpty()) {
             _repoInstalled.value = emptyList()
+            _allInstalled.value = detectedModules.sortedBy { it.label.lowercase() }
             return
         }
-        val detected = detectedModules.associateBy { it.packageName }
         installedRebuildJob = viewModelScope.launch {
             val full = withContext(Dispatchers.IO) {
-                repoPackages.asSequence()
-                    .filter { versions.containsKey(it) }
-                    .mapNotNull { detected[it] ?: container.scanner.installedModule(it) }
-                    .distinctBy { it.packageName }
-                    .sortedBy { it.label.lowercase() }
-                    .toList()
+                if (repoPackages.isEmpty()) {
+                    emptyList()
+                } else {
+                    repoPackages.asSequence()
+                        .filter { versions.containsKey(it) }
+                        .mapNotNull { detected[it] ?: container.scanner.installedModule(it) }
+                        .distinctBy { it.packageName }
+                        .toList()
+                }
             }
-            _repoInstalled.value = full
+            _repoInstalled.value = full.sortedBy { it.label.lowercase() }
+            val notDetected = full.filter { it.packageName !in detected }
+            _allInstalled.value = (detectedModules + notDetected)
+                .distinctBy { it.packageName }
+                .sortedBy { it.label.lowercase() }
             discoverMissingInstalledModules()
         }
     }
